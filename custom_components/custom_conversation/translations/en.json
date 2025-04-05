@@ -12,6 +12,9 @@
       "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid authentication",
       "unknown": "Unexpected error"
+    },
+    "abort": {
+      "reconfigure_successful": "Reconfiguration was successful"
     }
   },
   "options": {
@@ -50,7 +53,7 @@
               "top_p": "Top P"
             }
           },
-          "custom_prompts":  {
+          "custom_prompts": {
             "name": "Customize Prompts",
             "description": "Customize the various prompt segments used by the Conversation agent and the API",
             "data": {
