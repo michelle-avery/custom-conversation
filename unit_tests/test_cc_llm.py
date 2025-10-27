@@ -38,6 +38,7 @@ def mock_user_input(mock_context):
         context=mock_context,
         conversation_id="test-convo-id",
         device_id="test-device-id",
+        satellite_id="test-satellite-id",
         language="en",
         agent_id="test-agent-id",
         extra_system_prompt=None,
