@@ -756,12 +756,6 @@ class CustomConversationEntity(
             else None,
         }
 
-        # The "content" field for assistant role messages can be None if it's a tool call, but Google's OpenAI
-        # endpoint can't handle this, so we set the content to "Tool Call"
-        for message in completion_kwargs["messages"]:
-            if message.get("role") == "assistant" and not message.get("content"):
-                message["content"] = "Tool Call"
-
         try:
             raw_stream: AsyncGenerator[
                 StreamingChatCompletionChunk

@@ -176,6 +176,7 @@ async def test_custom_conversation_openai_error(hass: HomeAssistant, config_entr
             context=Context(),
             conversation_id="test-conversation-id",
             device_id="test-device-id",
+            satellite_id="test-device-satellite-id",
             language="en",
             agent_id=config_entry.entry_id
         )
@@ -211,6 +212,7 @@ async def test_async_fire_conversation_error(hass: HomeAssistant, config_entry: 
         context=Context(),
         conversation_id="test-conversation-id",
         device_id="test-device-id",
+        satellite_id="test-satellite-id",
         language="en",
         agent_id=config_entry.entry_id
     )
