@@ -22,7 +22,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pipenv sync --dev
+        pipenv install --dev
 
     - name: Uninstall conflicting snapshot package
       run: |
