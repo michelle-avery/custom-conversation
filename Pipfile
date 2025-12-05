@@ -10,14 +10,14 @@ home-assistant-intents = "*"
 mutagen = "*"
 ha-ffmpeg = "*"
 langfuse = "==2.59.3"
-litellm = "==1.67.2"
+litellm = ">=1.80.0"
 
 [dev-packages]
 pytest = "*"
 pytest-homeassistant-custom-component = "*"
 pytest-cov = "*"
 pytest-asyncio = "*"
-homeassistant = "2025.10.2"
+homeassistant = "2025.12.0"
 python-dotenv = "*"
 pyobjc = {version = "*", sys_platform = "== 'darwin'"}
 dbus-fast = "*"
