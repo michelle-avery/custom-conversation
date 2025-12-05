@@ -4,22 +4,21 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-openai = "*"
 hassil = "*"
 home-assistant-intents = "*"
 mutagen = "*"
 ha-ffmpeg = "*"
 langfuse = "==2.59.3"
-litellm = "==1.67.2"
+litellm = ">=1.80.0"
+homeassistant = "==2025.12.0"
+openai = "==2.8.0"
 
 [dev-packages]
 pytest = "*"
-pytest-homeassistant-custom-component = "*"
+pytest-homeassistant-custom-component = "==0.13.298"
 pytest-cov = "*"
 pytest-asyncio = "*"
-homeassistant = "2025.10.2"
 python-dotenv = "*"
-pyobjc = {version = "*", sys_platform = "== 'darwin'"}
 dbus-fast = "*"
 
 [requires]

@@ -16,7 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import TemplateError
 from homeassistant.helpers import template
-from homeassistant.util import yaml as yaml_util
+from homeassistant.util import yaml as yaml_util, dt as dt_util
 
 from .const import (
     CONF_API_PROMPT_BASE,
@@ -125,8 +125,8 @@ class PromptManager:
                     CONF_LANGFUSE_BASE_PROMPT_ID
                 ),
                 {
-                    "current_time": template.now(context.hass).strftime("%H:%M"),
-                    "current_date": template.now(context.hass).strftime("%Y-%m-%d"),
+                    "current_time": dt_util.now().strftime("%H:%M"),
+                    "current_date": dt_util.now().strftime("%Y-%m-%d"),
                     "ha_name": context.ha_name,
                     "user_name": context.user_name,
                 },
@@ -170,8 +170,8 @@ class PromptManager:
                     CONF_LANGFUSE_API_PROMPT_ID
                 ),
                 {
-                    "current_time": template.now(hass=self.hass).strftime("%H:%M"),
-                    "current_date": template.now(hass=self.hass).strftime("%Y-%m-%d"),
+                    "current_time": dt_util.now().strftime("%H:%M"),
+                    "current_date": dt_util.now().strftime("%Y-%m-%d"),
                     "ha_name": context.ha_name,
                     "user_name": (
                         context.user_name if context.user_name else "unknown"
