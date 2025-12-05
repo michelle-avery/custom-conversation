@@ -11,6 +11,8 @@ mutagen = "*"
 ha-ffmpeg = "*"
 langfuse = "==2.59.3"
 litellm = ">=1.80.0"
+homeassistant = "==2025.12.0"
+pytest-homeassistant-custom-component = "==0.13.298"
 
 [dev-packages]
 pytest = "*"
