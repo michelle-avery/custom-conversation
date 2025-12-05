@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "a01ab4659e2c541e9245cd0fafa9c8401f9dec40093fdd9285ac46bf3245b3f2"
+            "sha256": "810377b725104dd809924cc50afec81e7c5dd243ec516ff75b10a2dfee925410"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -2324,12 +2324,12 @@
         },
         "openai": {
             "hashes": [
-                "sha256:0d168a490fbb45630ad508a6f3022013c155a68fd708069b6a1a01a5e8f0ffad",
-                "sha256:b52ec65727fc8f1eed2fbc86c8eac0998900c7ef63aa2eb5c24b69717c56fa5f"
+                "sha256:4851908f6d6fcacbd47ba659c5ac084f7725b752b6bfa1e948b6fbfc111a6bad",
+                "sha256:ba975e347f6add2fe13529ccb94d54a578280e960765e5224c34b08d7e029ddf"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.9'",
-            "version": "==2.9.0"
+            "version": "==2.8.0"
         },
         "orjson": {
             "hashes": [
