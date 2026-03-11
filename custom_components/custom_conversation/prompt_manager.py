@@ -7,10 +7,9 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from langfuse import Langfuse
-from langfuse.api import CreateScoreConfigRequest
-from langfuse.api.resources.commons.types import ScoreDataType
-from langfuse.decorators import observe
+from langfuse.api import CreateScoreConfigRequest, ScoreConfigDataType
 from langfuse.model import Prompt
+from langfuse import observe
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -334,7 +333,7 @@ class LangfuseClient:
                 if not score_config:
                     score_config_request = CreateScoreConfigRequest(
                         name=LANGFUSE_SCORE_NAME,
-                        data_type=ScoreDataType.CATEGORICAL,
+                        data_type=ScoreConfigDataType.CATEGORICAL,
                         categories=[
                             {
                                 "label": LANGFUSE_SCORE_POSITIVE,

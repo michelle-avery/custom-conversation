@@ -22,7 +22,7 @@ def setup_mocks():
     mock_langfuse.decorators = Mock()
     mock_langfuse.api = Mock()
     # Mock the observe decorator to simply return the function
-    mock_langfuse.decorators.observe = lambda *args, **kwargs: lambda f: f
+    mock_langfuse.observe = lambda *args, **kwargs: lambda f: f
 
     # Mock all required langfuse modules
     sys.modules['langfuse'] = mock_langfuse
