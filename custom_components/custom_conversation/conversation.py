@@ -5,10 +5,10 @@ from collections.abc import AsyncGenerator, Callable
 import json
 from typing import TYPE_CHECKING, Any, Literal, Union, cast
 
-from langfuse.decorators import langfuse_context, observe
+from langfuse import get_client as get_langfuse_client, observe
 
 if TYPE_CHECKING:
-    from langfuse.types import PromptClient
+    from langfuse.model import PromptClient
 from litellm import OpenAIError, RateLimitError, Router
 from litellm.types.completion import (
     ChatCompletionAssistantMessageParam,
@@ -350,8 +350,10 @@ class CustomConversationEntity(
             CONF_LANGFUSE_TRACING_ENABLED, False
         ):
             try:
+                from langfuse import Langfuse
+
                 hass.async_add_executor_job(
-                    lambda: langfuse_context.configure(
+                    lambda: Langfuse(
                         host=entry.options[CONF_LANGFUSE_SECTION][CONF_LANGFUSE_HOST],
                         public_key=entry.options[CONF_LANGFUSE_SECTION][
                             CONF_LANGFUSE_PUBLIC_KEY
@@ -415,7 +417,7 @@ class CustomConversationEntity(
         )
         new_tags = user_configured_tags + device_tags
 
-        langfuse_context.update_current_trace(tags=new_tags)
+        get_langfuse_client().update_current_span(metadata={"tags": new_tags})
         event_data = {
             "agent_id": user_input.agent_id,
             "conversation_id": user_input.conversation_id,
@@ -460,8 +462,8 @@ class CustomConversationEntity(
                     if len(result.response.success_results) > 0:
                         for success_result in result.response.success_results:
                             new_tags.append(f"affected_entity:{success_result.id}")
-                    langfuse_context.update_current_observation(output=result.as_dict())
-                    langfuse_context.update_current_trace(tags=new_tags)
+                    get_langfuse_client().update_current_span(output=result.as_dict())
+                    get_langfuse_client().update_current_span(metadata={"tags": new_tags})
                     return conversation.ConversationResult(
                         response=result.response,
                         conversation_id=session.conversation_id,
@@ -494,8 +496,8 @@ class CustomConversationEntity(
                             llm_data=llm_data,
                             device_data=device_data,
                         )
-                        langfuse_context.update_current_trace(
-                            tags=["handling_agent:llm"]
+                        get_langfuse_client().update_current_span(
+                            metadata={"tags": ["handling_agent:llm"]}
                         )
                     else:
                         await self._async_fire_conversation_error(
@@ -537,7 +539,7 @@ class CustomConversationEntity(
                 intent.IntentResponseErrorCode.UNKNOWN,
                 "Sorry, I had a problem talking to Home Assistant",
             )
-            langfuse_context.update_current_observation(
+            get_langfuse_client().update_current_span(
                 output=intent_response.as_dict()
             )
             return conversation.ConversationResult(
@@ -564,7 +566,7 @@ class CustomConversationEntity(
             LOGGER.debug(
                 "Hass agent responded with error_code: %s", response.response.error_code
             )
-        langfuse_context.update_current_observation(output=response.as_dict())
+        get_langfuse_client().update_current_span(output=response.as_dict())
         return response
 
     @observe(name="cc_handle_message_with_llm")
@@ -655,7 +657,7 @@ class CustomConversationEntity(
         intent_response.async_set_speech(final_assistant_message.content or "")
 
         llm_details, new_tags = _get_llm_details(messages)
-        langfuse_context.update_current_trace(tags=new_tags)
+        get_langfuse_client().update_current_span(metadata={"tags": new_tags})
 
         return conversation.ConversationResult(
             response=intent_response,
@@ -689,11 +691,11 @@ class CustomConversationEntity(
                 "options": {**entry.options},
             },
         }
-        langfuse_context.update_current_observation(
+        get_langfuse_client().update_current_span(
             input=cleaned_input,
         )
-        generation_id = langfuse_context.get_current_observation_id()
-        existing_trace_id = langfuse_context.get_current_trace_id()
+        generation_id = get_langfuse_client().get_current_observation_id()
+        existing_trace_id = get_langfuse_client().get_current_trace_id()
         primary_model = f"{entry.data.get(CONF_PRIMARY_PROVIDER)}/{entry.data.get(CONF_PRIMARY_CHAT_MODEL)}"
         secondary_model = (
             f"{entry.data.get(CONF_SECONDARY_PROVIDER)}/{entry.data.get(CONF_SECONDARY_CHAT_MODEL)}"
@@ -760,7 +762,7 @@ class CustomConversationEntity(
             raw_stream: AsyncGenerator[
                 StreamingChatCompletionChunk
             ] = await router.acompletion(**completion_kwargs)
-            langfuse_context.update_current_observation(prompt=prompt)
+            get_langfuse_client().update_current_span(metadata={"prompt": prompt.__dict__ if prompt else None})
 
             return _transform_litellm_stream(raw_stream)
 

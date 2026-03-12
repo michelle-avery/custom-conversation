@@ -1,5 +1,5 @@
 """Replaces Some of Home Assistant's helpers/llm.py code to allow us to choose the correct prompt."""
-from langfuse.decorators import langfuse_context, observe
+from langfuse import get_client as get_langfuse_client, observe
 
 from homeassistant.components.conversation import (
     ChatLog,
@@ -158,7 +158,7 @@ async def async_update_llm_data(
     if extra_system_prompt:
         LOGGER.debug("Using extra system prompt: %s", extra_system_prompt)
         prompt += "\n" + extra_system_prompt
-        langfuse_context.update_current_trace(tags=["extra_system_prompt"])
+        get_langfuse_client().update_current_span(metadata={"tags": ["extra_system_prompt"]})
 
     chat_log.llm_api = llm_api
     chat_log.extra_system_prompt = extra_system_prompt

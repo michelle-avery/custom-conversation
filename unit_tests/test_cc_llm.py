@@ -68,7 +68,7 @@ async def test_async_update_llm_data_no_api(
     mock_user: User,
 ):
     """Test async_update_llm_data when llm_api_name is None."""
-    with patch("homeassistant.auth.AuthManager.async_get_user", return_value=mock_user):
+    with patch("homeassistant.auth.AuthManager.async_get_user", new_callable=AsyncMock, return_value=mock_user):
         await async_update_llm_data(
             hass,
             mock_user_input,

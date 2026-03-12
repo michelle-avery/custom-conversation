@@ -54,7 +54,7 @@ async def test_custom_conversation_tries_hass_agent_first(hass: HomeAssistant, c
     mock_response.error_code = None
     mock_result = conversation.ConversationResult(mock_response, "test-conversation-id")
     with patch(
-        "custom_components.custom_conversation.conversation.CustomConversationEntity._async_handle_message_with_hass", return_value=mock_result
+        "custom_components.custom_conversation.conversation.CustomConversationEntity._async_handle_message_with_hass", new_callable=AsyncMock, return_value=mock_result
     ) as mock_process_hass:
 
         hass.config_entries.async_update_entry(
@@ -100,11 +100,11 @@ async def test_custom_conversation_rate_limit_error(hass: HomeAssistant, config_
     hass.bus.async_listen(CONVERSATION_ERROR_EVENT, lambda e: events.append(e))
 
     with patch(
-        "custom_components.custom_conversation.conversation.CustomConversationEntity._async_handle_message_with_hass", 
-        return_value=mock_result
+        "custom_components.custom_conversation.conversation.CustomConversationEntity._async_handle_message_with_hass",
+        new_callable=AsyncMock, return_value=mock_result
     ), patch(
-        "custom_components.custom_conversation.conversation.CustomConversationEntity._async_handle_message_with_llm", 
-        side_effect=rate_limit_error
+        "custom_components.custom_conversation.conversation.CustomConversationEntity._async_handle_message_with_llm",
+        new_callable=AsyncMock, side_effect=rate_limit_error
     ), patch(
         "custom_components.custom_conversation.conversation.CustomConversationEntity._async_fire_conversation_error",
         AsyncMock()

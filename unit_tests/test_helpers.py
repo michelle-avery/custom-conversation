@@ -14,22 +14,31 @@ def setup_mocks():
     client_instance.chat.completions.create = AsyncMock()
     mock_openai.AsyncOpenAI.return_value = client_instance
 
+    # Create a mock langfuse client instance that get_client() returns
+    mock_langfuse_client = MagicMock()
+    mock_langfuse_client.update_current_span = MagicMock()
+    mock_langfuse_client.get_current_observation_id = MagicMock(return_value="mock-observation-id")
+    mock_langfuse_client.get_current_trace_id = MagicMock(return_value="mock-trace-id")
+
     # Create full langfuse structure
     mock_langfuse = Mock()
     mock_langfuse.openai = Mock(openai=mock_openai)
     mock_langfuse.model = Mock()
     mock_langfuse.model.Prompt = Mock
-    mock_langfuse.decorators = Mock()
+    mock_langfuse.model.PromptClient = Mock
     mock_langfuse.api = Mock()
     # Mock the observe decorator to simply return the function
     mock_langfuse.observe = lambda *args, **kwargs: lambda f: f
+    # Mock get_client to return a mock langfuse client
+    mock_langfuse.get_client = MagicMock(return_value=mock_langfuse_client)
+    # Mock the Langfuse constructor (used for configuration)
+    mock_langfuse.Langfuse = MagicMock(return_value=mock_langfuse_client)
 
     # Mock all required langfuse modules
     sys.modules['langfuse'] = mock_langfuse
     sys.modules['langfuse.openai'] = mock_langfuse.openai
     sys.modules['langfuse.openai.openai'] = mock_openai
     sys.modules['langfuse.model'] = mock_langfuse.model
-    sys.modules['langfuse.decorators'] = mock_langfuse.decorators
     sys.modules['langfuse.api'] = mock_langfuse.api
     sys.modules['langfuse.api.resources'] = mock_langfuse.api.resources
     sys.modules['langfuse.api.resources.commons'] = mock_langfuse.api.resources.commons
