@@ -119,7 +119,7 @@ class PromptManager:
         if config_entry and config_entry.options.get(CONF_LANGFUSE_SECTION, {}).get(
             CONF_ENABLE_LANGFUSE
         ):
-            prompt_object, langfuse_prompt = await self._get_langfuse_prompt(
+            result = await self._get_langfuse_prompt(
                 config_entry.options.get(CONF_LANGFUSE_SECTION, {}).get(
                     CONF_LANGFUSE_BASE_PROMPT_ID
                 ),
@@ -130,8 +130,10 @@ class PromptManager:
                     "user_name": context.user_name,
                 },
             )
-            if langfuse_prompt:
-                return prompt_object, langfuse_prompt
+            if result is not None:
+                prompt_object, langfuse_prompt = result
+                if langfuse_prompt:
+                    return prompt_object, langfuse_prompt
 
         try:
             base_prompt = self._get_prompt_config(
@@ -164,7 +166,7 @@ class PromptManager:
         if config_entry and config_entry.options.get(CONF_LANGFUSE_SECTION, {}).get(
             CONF_ENABLE_LANGFUSE
         ):
-            prompt_object, langfuse_prompt = await self._get_langfuse_prompt(
+            result = await self._get_langfuse_prompt(
                 config_entry.options.get(CONF_LANGFUSE_SECTION, {}).get(
                     CONF_LANGFUSE_API_PROMPT_ID
                 ),
@@ -188,8 +190,10 @@ class PromptManager:
                     ),
                 },
             )
-            if langfuse_prompt:
-                return prompt_object, langfuse_prompt
+            if result is not None:
+                prompt_object, langfuse_prompt = result
+                if langfuse_prompt:
+                    return prompt_object, langfuse_prompt
         prompt_parts = []
 
         if not context.exposed_entities:
