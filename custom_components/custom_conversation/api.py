@@ -326,7 +326,7 @@ def _get_exposed_entities(
                     area_names.extend(area.aliases)
 
         info: dict[str, Any] = {
-            "names": ", ".join(names),
+            "names": ", ".join(str(n) for n in names),
             "domain": state.domain,
             "state": state.state,
         }
@@ -335,7 +335,7 @@ def _get_exposed_entities(
             info["description"] = description
 
         if area_names:
-            info["areas"] = ", ".join(area_names)
+            info["areas"] = ", ".join(str(n) for n in area_names)
 
         if attributes := {
             attr_name: str(attr_value)
