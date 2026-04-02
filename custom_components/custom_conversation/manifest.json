@@ -10,5 +10,5 @@
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "requirements": ["langfuse>=4.0.0", "litellm==1.81.4", "openai>=2.8.0"],
-  "version": "1.6.0"
+  "version": "1.6.1"
 }
