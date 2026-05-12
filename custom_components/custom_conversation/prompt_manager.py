@@ -311,10 +311,6 @@ class LangfuseClient:
                     host=config_entry.options[CONF_LANGFUSE_SECTION].get(
                         CONF_LANGFUSE_HOST
                     ),
-                    enabled=config_entry.options[CONF_LANGFUSE_SECTION][
-                        CONF_LANGFUSE_TRACING_ENABLED
-                    ],
-                    max_retries=0,
                 )
 
             client = await hass.async_add_executor_job(create_client)
