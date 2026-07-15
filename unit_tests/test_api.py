@@ -8,6 +8,7 @@ import voluptuous as vol
 
 from custom_components.custom_conversation.api import (
     CustomLLMAPI,
+    GetLiveContextTool,
     IntentTool,
     _get_exposed_entities,
 )
@@ -160,7 +161,9 @@ async def test_custom_llm_api_get_api_instance(custom_llm_api, mock_llm_context,
 
         instance = await custom_llm_api.async_get_api_instance(mock_llm_context)
 
-        mock_get_exposed.assert_called_once_with(custom_llm_api.hass, mock_llm_context.assistant)
+        mock_get_exposed.assert_called_once_with(
+            custom_llm_api.hass, mock_llm_context.assistant, include_state=False
+        )
         mock_get_prompt.assert_called_once_with(mock_llm_context, mock_exposed_entities_data)
         mock_get_tools.assert_called_once_with(mock_llm_context, mock_exposed_entities_data)
         mock_api_instance_cls.assert_called_once_with(
@@ -226,8 +229,20 @@ async def test_custom_llm_api_get_tools(custom_llm_api, hass, mock_llm_context, 
         mock_supports_timers.assert_called_once_with(hass, mock_llm_context.device_id)
 
         mock_intent_tool_cls.assert_called_once_with("HassTurnOn", mock_intent_handler_1)
-        assert len(tools) == 1
+        assert len(tools) == 2
         assert tools[0] is mock_intent_tool_cls.return_value
+        assert isinstance(tools[1], GetLiveContextTool)
+
+
+@pytest.mark.asyncio
+async def test_custom_llm_api_get_tools_no_exposed_entities(custom_llm_api, hass, mock_llm_context, config_entry):
+    """Test that GetLiveContextTool is omitted when nothing is exposed."""
+    with patch("custom_components.custom_conversation.api.intent.async_get", return_value=[]), \
+         patch("custom_components.custom_conversation.api.async_device_supports_timers", return_value=False):
+
+        tools = custom_llm_api._async_get_tools(mock_llm_context, {})
+
+        assert not any(isinstance(tool, GetLiveContextTool) for tool in tools)
 
 
 def test_intent_tool_init():
@@ -409,3 +424,88 @@ def test_get_exposed_entities_unexposed(mock_async_all, mock_should_expose, mock
 
     assert len(entities) == 0
     assert mock_target_entity.entity_id not in entities
+
+
+@patch("custom_components.custom_conversation.api._get_cached_script_parameters")
+@patch("custom_components.custom_conversation.api.async_should_expose", return_value=True)
+@patch("homeassistant.core.StateMachine.async_all")
+def test_get_exposed_entities_include_state_false(mock_async_all, mock_should_expose, mock_get_script_params, hass, mock_target_entity):
+    """Test _get_exposed_entities omits state and attributes when include_state is False."""
+    mock_async_all.return_value = [hass.states.get(mock_target_entity.entity_id)]
+
+    assistant_id = "conversation.test_assistant"
+    entities = _get_exposed_entities(hass, assistant_id, include_state=False)
+
+    light_info = entities[mock_target_entity.entity_id]
+    assert light_info["names"] == "Test Light"
+    assert light_info["domain"] == "light"
+    assert light_info["areas"] == "Test Area"
+    assert "state" not in light_info
+    assert "attributes" not in light_info
+
+
+@pytest.mark.asyncio
+async def test_get_live_context_tool_no_filter(hass, mock_llm_context, mock_target_entity):
+    """Test GetLiveContextTool returns all exposed entities when no filter is given."""
+    tool_input = llm.ToolInput(tool_name="GetLiveContext", tool_args={})
+    mock_entities = {
+        mock_target_entity.entity_id: {
+            "names": "Test Light",
+            "domain": "light",
+            "state": "on",
+            "attributes": {"brightness": "100"},
+        }
+    }
+
+    with patch(
+        "custom_components.custom_conversation.api._get_exposed_entities",
+        return_value=mock_entities,
+    ) as mock_get_exposed:
+        tool = GetLiveContextTool()
+        response = await tool.async_call(hass, tool_input, mock_llm_context)
+
+        mock_get_exposed.assert_called_once_with(
+            hass, mock_llm_context.assistant, include_state=True
+        )
+        assert response["success"] is True
+        assert "Test Light" in response["result"]
+
+
+@pytest.mark.asyncio
+async def test_get_live_context_tool_no_exposed_entities(hass, mock_llm_context):
+    """Test GetLiveContextTool when nothing is exposed."""
+    tool_input = llm.ToolInput(tool_name="GetLiveContext", tool_args={})
+
+    with patch(
+        "custom_components.custom_conversation.api._get_exposed_entities",
+        return_value={},
+    ):
+        tool = GetLiveContextTool()
+        response = await tool.async_call(hass, tool_input, mock_llm_context)
+
+        assert response == {"success": False, "error": "No entities are exposed"}
+
+
+@pytest.mark.asyncio
+async def test_get_live_context_tool_filter_no_match(hass, mock_llm_context, mock_target_entity):
+    """Test GetLiveContextTool returns an error when the name filter matches nothing."""
+    tool_input = llm.ToolInput(
+        tool_name="GetLiveContext", tool_args={"name": "Nonexistent Entity"}
+    )
+    mock_entities = {
+        mock_target_entity.entity_id: {
+            "names": "Test Light",
+            "domain": "light",
+            "state": "on",
+        }
+    }
+
+    with patch(
+        "custom_components.custom_conversation.api._get_exposed_entities",
+        return_value=mock_entities,
+    ):
+        tool = GetLiveContextTool()
+        response = await tool.async_call(hass, tool_input, mock_llm_context)
+
+        assert response["success"] is False
+        assert "Nonexistent Entity" in response["error"]
