@@ -342,7 +342,7 @@ def _get_exposed_entities(
             info["areas"] = ", ".join(str(n) for n in area_names)
 
         if attributes := {
-            attr_name: str(attr_value)
+            str(attr_name): str(attr_value)
             if isinstance(attr_value, (Enum, Decimal, int))
             else attr_value
             for attr_name, attr_value in state.attributes.items()
