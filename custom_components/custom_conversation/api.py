@@ -308,7 +308,11 @@ def _get_exposed_entities(
         area_names = []
 
         if entity_entry is not None:
-            names.extend(entity_entry.aliases)
+            names.extend(
+                alias
+                for alias in entity_entry.aliases
+                if alias is not er.COMPUTED_NAME
+            )
             if entity_entry.area_id and (
                 area := area_registry.async_get_area(entity_entry.area_id)
             ):
@@ -416,7 +420,11 @@ def _get_cached_script_parameters(
             if entity_entry.name:
                 aliases.append(entity_entry.name)
             if entity_entry.aliases:
-                aliases.extend(entity_entry.aliases)
+                aliases.extend(
+                    alias
+                    for alias in entity_entry.aliases
+                    if alias is not er.COMPUTED_NAME
+                )
             if aliases:
                 if description:
                     description = description + ". Aliases: " + str(list(aliases))
