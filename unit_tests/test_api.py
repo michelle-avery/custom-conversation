@@ -319,17 +319,18 @@ def test_get_exposed_entities_with_area(mock_async_all, mock_should_expose, mock
     """Test _get_exposed_entities for an entity with a direct area."""
     entity_registry = er.async_get(hass)
     entity_registry.async_update_entity(mock_target_entity.entity_id, area_id=mock_area.id)
-    mock_async_all.return_value = [hass.states.get("light.test_platform_test_light_unique_id")]
+    entity_id = mock_target_entity.entity_id
+    mock_async_all.return_value = [hass.states.get(entity_id)]
 
     assistant_id = "conversation.test_assistant"
     entities = _get_exposed_entities(hass, assistant_id)
 
     mock_async_all.assert_called_once()
-    mock_should_expose.assert_called_once_with(hass, assistant_id, "light.test_platform_test_light_unique_id")
+    mock_should_expose.assert_called_once_with(hass, assistant_id, entity_id)
 
     assert len(entities) == 1
-    assert "light.test_platform_test_light_unique_id" in entities
-    light_info = entities["light.test_platform_test_light_unique_id"]
+    assert entity_id in entities
+    light_info = entities[entity_id]
     assert light_info["names"] == "Test Light"
     assert light_info["domain"] == "light"
     assert light_info["state"] == "on"
@@ -344,17 +345,18 @@ def test_get_exposed_entities_with_area(mock_async_all, mock_should_expose, mock
 @patch("homeassistant.core.StateMachine.async_all")
 def test_get_exposed_entities_with_device_area(mock_async_all, mock_should_expose, mock_get_script_params, hass, mock_target_entity):
     """Test _get_exposed_entities for an entity using device area fallback."""
-    mock_async_all.return_value = [hass.states.get("light.test_platform_test_light_unique_id")]
+    entity_id = mock_target_entity.entity_id
+    mock_async_all.return_value = [hass.states.get(entity_id)]
 
     assistant_id = "conversation.test_assistant"
     entities = _get_exposed_entities(hass, assistant_id)
 
     mock_async_all.assert_called_once()
-    mock_should_expose.assert_called_once_with(hass, assistant_id, "light.test_platform_test_light_unique_id")
+    mock_should_expose.assert_called_once_with(hass, assistant_id, entity_id)
 
     assert len(entities) == 1
-    assert "light.test_platform_test_light_unique_id" in entities
-    light_info = entities["light.test_platform_test_light_unique_id"]
+    assert entity_id in entities
+    light_info = entities[entity_id]
     assert light_info["names"] == "Test Light"
     assert light_info["domain"] == "light"
     assert light_info["state"] == "on"
