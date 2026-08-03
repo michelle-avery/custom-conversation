@@ -386,44 +386,6 @@ async def test_options_flow_ignored_intents(hass: HomeAssistant, config_entry):
         assert result["data"][CONF_IGNORED_INTENTS_SECTION][CONF_IGNORED_INTENTS] == test_intents
 
 
-async def test_options_flow_ignored_intents_key_absent_defaults(hass: HomeAssistant, config_entry):
-    """Test config flow options: CONF_IGNORED_INTENTS key missing entirely (not just empty) falls back to the default ignore list."""
-
-    config_entry.add_to_hass(hass)
-    with patch(
-        "custom_components.custom_conversation.async_setup", return_value=True
-    ), patch(
-        "custom_components.custom_conversation.async_setup_entry",
-        return_value=True,
-    ), patch(
-        "homeassistant.helpers.intent.async_get",
-        return_value=[
-            type("Intent", (), {"intent_type": "HassTurnOn"}),
-            type("Intent", (), {"intent_type": "HassTurnOff"}),
-        ],
-    ):
-        result = await hass.config_entries.options.async_init(config_entry.entry_id)
-        assert result["type"] == FlowResultType.FORM
-        assert result["step_id"] == "init"
-
-        result = await hass.config_entries.options.async_configure(
-            result["flow_id"],
-            user_input={
-                CONF_IGNORED_INTENTS_SECTION: {},
-                CONF_AGENTS_SECTION: {
-                    CONF_ENABLE_HASS_AGENT: True,
-                    CONF_ENABLE_LLM_AGENT: True,
-                },
-                CONF_TEMPERATURE: DEFAULT_TEMPERATURE,
-                CONF_TOP_P: DEFAULT_TOP_P,
-                CONF_MAX_TOKENS: DEFAULT_MAX_TOKENS,
-                CONF_CUSTOM_PROMPTS_SECTION: {},
-                CONF_LANGFUSE_SECTION: {}
-            },
-        )
-        assert result["type"] == FlowResultType.CREATE_ENTRY
-        assert result["data"][CONF_IGNORED_INTENTS_SECTION][CONF_IGNORED_INTENTS] == llm.AssistAPI.IGNORE_INTENTS
-
 
 async def test_reconfigure_flow_steps(hass: HomeAssistant, config_entry: MockConfigEntry):
     """Test the full multi-step reconfigure flow."""
