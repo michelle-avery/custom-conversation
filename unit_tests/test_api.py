@@ -11,7 +11,11 @@ from custom_components.custom_conversation.api import (
     IntentTool,
     _get_exposed_entities,
 )
-from custom_components.custom_conversation.const import CONF_IGNORED_INTENTS, LLM_API_ID
+from custom_components.custom_conversation.const import (
+    CONF_IGNORED_INTENTS,
+    CONF_IGNORED_INTENTS_SECTION,
+    LLM_API_ID,
+)
 from custom_components.custom_conversation.prompt_manager import (
     PromptContext,
     PromptManager,
@@ -212,7 +216,8 @@ async def test_custom_llm_api_get_tools(custom_llm_api, hass, mock_llm_context, 
     mock_exposed_entities = mock_exposed_entities_data
 
     hass.config_entries.async_update_entry(
-        config_entry, options={CONF_IGNORED_INTENTS: ["HassTurnOff"]}
+        config_entry,
+        options={CONF_IGNORED_INTENTS_SECTION: {CONF_IGNORED_INTENTS: ["HassTurnOff"]}},
     )
     await hass.async_block_till_done()
 
