@@ -509,3 +509,81 @@ async def test_get_live_context_tool_filter_no_match(hass, mock_llm_context, moc
 
         assert response["success"] is False
         assert "Nonexistent Entity" in response["error"]
+
+
+@pytest.mark.asyncio
+async def test_get_live_context_tool_domain_filter_match(hass, mock_llm_context, mock_target_entity):
+    """Test GetLiveContextTool with a string domain filter returns the matched subset."""
+    tool_input = llm.ToolInput(tool_name="GetLiveContext", tool_args={"domain": "light"})
+    mock_entities = {
+        mock_target_entity.entity_id: {"names": "Test Light", "domain": "light", "state": "on"},
+        "sensor.other": {"names": "Other", "domain": "sensor", "state": "5"},
+    }
+    mock_match_result = MagicMock(
+        is_match=True,
+        states=[MagicMock(entity_id=mock_target_entity.entity_id)],
+    )
+
+    with patch(
+        "custom_components.custom_conversation.api._get_exposed_entities",
+        return_value=mock_entities,
+    ), patch(
+        "custom_components.custom_conversation.api.intent.async_match_targets",
+        return_value=mock_match_result,
+    ) as mock_match:
+        tool = GetLiveContextTool()
+        response = await tool.async_call(hass, tool_input, mock_llm_context)
+
+        assert mock_match.call_args.args[1].domains == ["light"]
+        assert response["success"] is True
+        assert "Test Light" in response["result"]
+        assert "Other" not in response["result"]
+
+
+@pytest.mark.asyncio
+async def test_get_live_context_tool_domain_filter_list_strips_blanks(hass, mock_llm_context, mock_target_entity):
+    """Test GetLiveContextTool normalizes a list domain filter, dropping blank entries."""
+    tool_input = llm.ToolInput(
+        tool_name="GetLiveContext", tool_args={"domain": ["Light", "  ", "Sensor"]}
+    )
+    mock_entities = {
+        mock_target_entity.entity_id: {"names": "Test Light", "domain": "light", "state": "on"},
+    }
+    mock_match_result = MagicMock(
+        is_match=True,
+        states=[MagicMock(entity_id=mock_target_entity.entity_id)],
+    )
+
+    with patch(
+        "custom_components.custom_conversation.api._get_exposed_entities",
+        return_value=mock_entities,
+    ), patch(
+        "custom_components.custom_conversation.api.intent.async_match_targets",
+        return_value=mock_match_result,
+    ) as mock_match:
+        tool = GetLiveContextTool()
+        response = await tool.async_call(hass, tool_input, mock_llm_context)
+
+        assert mock_match.call_args.args[1].domains == ["light", "sensor"]
+        assert response["success"] is True
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected_substring"),
+    [
+        (intent.MatchFailedReason.INVALID_AREA, "does not exist"),
+        (intent.MatchFailedReason.NAME, "matched name"),
+        (intent.MatchFailedReason.AREA, "found in area"),
+        (intent.MatchFailedReason.DOMAIN, "found in domain"),
+        (intent.MatchFailedReason.ASSISTANT, "No entities matched the provided filter"),
+    ],
+)
+def test_live_context_match_error_reasons(reason, expected_substring):
+    """Test _live_context_match_error covers every branch, including the generic fallback."""
+    from custom_components.custom_conversation.api import _live_context_match_error
+
+    match_result = MagicMock(no_match_reason=reason, no_match_name="Kitchen")
+    message = _live_context_match_error(
+        match_result, name_filter="Foo", area_filter="Kitchen", domain_filter=["light"]
+    )
+    assert expected_substring in message
