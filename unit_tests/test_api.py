@@ -138,7 +138,7 @@ async def test_custom_llm_api_init(hass, config_entry):
     assert api._request_user_name == "Test User"
     assert api.conversation_config_entry is config_entry
     assert api.id == LLM_API_ID
-    assert api.name == "Custom Conversation LLM API"
+    assert api.name == "Custom Conversation MCP server"
 
 def test_custom_llm_api_set_langfuse_client(custom_llm_api, mock_prompt_manager):
     """Test setting the Langfuse client."""

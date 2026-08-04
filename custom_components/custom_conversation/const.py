@@ -1,6 +1,9 @@
 """Constants for the Custom Conversation integration."""
 
+from __future__ import annotations
+
 import logging
+from typing import Any
 
 DOMAIN = "custom_conversation"
 LOGGER = logging.getLogger(__package__)
@@ -117,3 +120,24 @@ HASS_DEPRECATED_INTENTS = [
 # Deprecated constants for migrations only
 CONF_CHAT_MODEL = "chat_model"
 CONF_BASE_URL = "base_url"
+
+
+def coerce_llm_hass_api_ids(raw: Any) -> list[str] | None:
+    """Normalize CONF_LLM_HASS_API (MCP server / LLM API ids) from options."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        if raw in ("", "none"):
+            return None
+        return [raw]
+    if isinstance(raw, list):
+        out: list[str] = []
+        seen: set[str] = set()
+        for item in raw:
+            if not item or item == "none":
+                continue
+            if item not in seen:
+                seen.add(item)
+                out.append(item)
+        return out or None
+    return None

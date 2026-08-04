@@ -41,7 +41,7 @@ from .prompt_manager import PromptContext, PromptManager
 
 
 class CustomLLMAPI(llm.API):
-    """An API for the Custom Conversation integration to use to call Home Assistant services."""
+    """MCP server for Custom Conversation (intents, scripts, and managed prompts as LLM tools)."""
 
     def __init__(
         self,
@@ -50,7 +50,7 @@ class CustomLLMAPI(llm.API):
         conversation_config_entry: ConfigEntry | None = None,
     ) -> None:
         """Initialize the API."""
-        super().__init__(hass=hass, id=LLM_API_ID, name="Custom Conversation LLM API")
+        super().__init__(hass=hass, id=LLM_API_ID, name="Custom Conversation MCP server")
         self.cached_slugify = cache(
             partial(unicode_slug.slugify, separator="_", lowercase=False)
         )
@@ -67,7 +67,7 @@ class CustomLLMAPI(llm.API):
     async def async_get_api_instance(
         self, llm_context: llm.LLMContext
     ) -> llm.APIInstance:
-        """Return an instance of the Custom Conversation LLM API."""
+        """Return an instance of this integration's MCP server API."""
         if llm_context.assistant:
             exposed_entities: dict | None = _get_exposed_entities(
                 self.hass, llm_context.assistant

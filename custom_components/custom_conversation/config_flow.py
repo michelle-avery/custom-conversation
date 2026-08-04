@@ -64,6 +64,7 @@ from .const import (
     CONF_TOP_P,
     CONFIG_VERSION,
     CONFIGURING_SECONDARY_PROVIDER,
+    coerce_llm_hass_api_ids,
     DEFAULT_API_PROMPT_BASE,
     DEFAULT_API_PROMPT_DEVICE_KNOWN_LOCATION,
     DEFAULT_API_PROMPT_DEVICE_UNKNOWN_LOCATION,
@@ -83,7 +84,6 @@ from .providers import SUPPORTED_PROVIDERS, LiteLLMProvider, get_provider
 _LOGGER = LOGGER
 
 DEFAULT_OPTIONS = {
-    CONF_LLM_HASS_API: "none",
     CONF_AGENTS_SECTION: {
         CONF_ENABLE_HASS_AGENT: True,
         CONF_ENABLE_LLM_AGENT: True,
@@ -505,9 +505,13 @@ class CustomConversationOptionsFlow(OptionsFlow):
             # Process user input before saving
             processed_input = {**user_input}  # Start with a copy
 
-            # Handle potential "none" value for Hass API control
-            if processed_input.get(CONF_LLM_HASS_API) == "none":
-                processed_input.pop(CONF_LLM_HASS_API, None)  # Remove if 'none'
+            # MCP server ids (CONF_LLM_HASS_API): store list or omit when none selected
+            llm_apis = processed_input.get(CONF_LLM_HASS_API)
+            normalized = coerce_llm_hass_api_ids(llm_apis)
+            if normalized:
+                processed_input[CONF_LLM_HASS_API] = normalized
+            else:
+                processed_input.pop(CONF_LLM_HASS_API, None)
 
             # Handle empty ignored intents - use default
             ignored_intents_section = processed_input.get(
@@ -552,12 +556,21 @@ class CustomConversationOptionsFlow(OptionsFlow):
                     CONF_MAX_TOKENS,
                     default=options.get(CONF_MAX_TOKENS, DEFAULT_MAX_TOKENS),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
-                # Hass API Control
+                # MCP servers (multiple merged like core conversation)
                 vol.Optional(
                     CONF_LLM_HASS_API,
-                    description={"suggested_value": options.get(CONF_LLM_HASS_API)},
-                    default="none",
-                ): SelectSelector(SelectSelectorConfig(options=hass_apis)),
+                    description={
+                        "suggested_value": coerce_llm_hass_api_ids(
+                            options.get(CONF_LLM_HASS_API)
+                        )
+                        or []
+                    },
+                    default=[],
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=hass_apis, multiple=True, sort=True
+                    )
+                ),
                 # Agent Section
                 vol.Required(CONF_AGENTS_SECTION): section(
                     vol.Schema(
@@ -756,15 +769,11 @@ class CustomConversationOptionsFlow(OptionsFlow):
         )
 
     def _get_hass_apis(self, hass: HomeAssistant) -> list[SelectOptionDict]:
-        """Get available Home Assistant LLM APIs."""
-        hass_apis: list[SelectOptionDict] = [
-            SelectOptionDict(label="No control", value="none")
-        ]
-        hass_apis.extend(
+        """Get registered MCP servers / LLM tool APIs for multi-select."""
+        return [
             SelectOptionDict(label=api.name, value=api.id)
             for api in llm.async_get_apis(hass)
-        )
-        return hass_apis
+        ]
 
     async def _get_intents(self, hass: HomeAssistant) -> list[SelectOptionDict]:
         """Get available intents."""

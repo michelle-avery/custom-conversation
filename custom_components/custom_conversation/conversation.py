@@ -58,6 +58,7 @@ from .const import (
     CONF_SECONDARY_PROVIDER,
     CONF_SECONDARY_PROVIDER_ENABLED,
     CONF_TEMPERATURE,
+    coerce_llm_hass_api_ids,
     CONF_TOP_P,
     CONVERSATION_ENDED_EVENT,
     CONVERSATION_ERROR_EVENT,
@@ -341,7 +342,7 @@ class CustomConversationEntity(
             model="Custom Conversation",
             entry_type=dr.DeviceEntryType.SERVICE,
         )
-        if self.entry.options.get(CONF_LLM_HASS_API):
+        if coerce_llm_hass_api_ids(self.entry.options.get(CONF_LLM_HASS_API)):
             self._attr_supported_features = (
                 conversation.ConversationEntityFeature.CONTROL
             )
@@ -579,16 +580,13 @@ class CustomConversationEntity(
 
         try:
             LOGGER.debug("Updating LLM Data")
-            llm_api = self.entry.options.get(CONF_LLM_HASS_API)
-            if llm_api == "none":
-                llm_api = None
             prompt_object = await async_update_llm_data(
                 self.hass,
                 user_input,
                 self.entry,
                 chat_log,
                 self.prompt_manager,
-                llm_api,
+                self.entry.options.get(CONF_LLM_HASS_API),
             )
             if prompt_object:
                 LOGGER.debug(

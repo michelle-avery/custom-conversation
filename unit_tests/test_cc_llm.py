@@ -67,7 +67,7 @@ async def test_async_update_llm_data_no_api(
     mock_prompt_manager: PromptManager,
     mock_user: User,
 ):
-    """Test async_update_llm_data when llm_api_name is None."""
+    """Test async_update_llm_data when no Hass LLM API is configured."""
     with patch("homeassistant.auth.AuthManager.async_get_user", new_callable=AsyncMock, return_value=mock_user):
         await async_update_llm_data(
             hass,
@@ -75,7 +75,7 @@ async def test_async_update_llm_data_no_api(
             config_entry,
             mock_chat_log,
             mock_prompt_manager,
-            llm_api_name=None,
+            llm_hass_api=None,
         )
 
     mock_prompt_manager.async_get_base_prompt.assert_awaited_once()

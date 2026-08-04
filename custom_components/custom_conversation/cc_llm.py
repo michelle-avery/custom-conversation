@@ -14,7 +14,7 @@ from homeassistant.helpers import intent, llm
 
 from . import CustomConversationConfigEntry
 from .api import CustomLLMAPI
-from .const import DOMAIN, LLM_API_ID, LOGGER
+from .const import DOMAIN, LLM_API_ID, LOGGER, coerce_llm_hass_api_ids
 from .prompt_manager import PromptContext, PromptManager
 
 
@@ -25,7 +25,7 @@ async def async_update_llm_data(
     config_entry: CustomConversationConfigEntry,
     chat_log: ChatLog,
     prompt_manager: PromptManager,
-    llm_api_name: str | None = None,
+    llm_hass_api: str | list[str] | None = None,
 ):
     """Process the incoming message for the LLM.
 
@@ -53,36 +53,44 @@ async def async_update_llm_data(
         user_name = user.name
 
     llm_api: llm.APIInstance | None = None
+    api_ids = coerce_llm_hass_api_ids(llm_hass_api)
 
-    if llm_api_name:
+    if api_ids:
         try:
-            if llm_api_name == LLM_API_ID:
-                LOGGER.debug("Using Custom LLM API for request")
-                api_instance = CustomLLMAPI(
-                    hass,
-                    user_name,
-                    conversation_config_entry=config_entry,
-                )
-                if (
-                    langfuse_client := hass.data.get(DOMAIN,{})
-                    .get(config_entry.entry_id,{})
-                    .get("langfuse_client")
-                ):
-                    LOGGER.debug("Setting langfuse client for Custom LLM API")
-                    api_instance.set_langfuse_client(langfuse_client)
-                llm_api = await api_instance.async_get_api_instance(llm_context)
+            registered = {api.id: api for api in llm.async_get_apis(hass)}
+            apis_to_merge: list[llm.API] = []
+            for api_id in api_ids:
+                if api_id == LLM_API_ID:
+                    custom_api = CustomLLMAPI(
+                        hass,
+                        user_name,
+                        conversation_config_entry=config_entry,
+                    )
+                    if (
+                        langfuse_client := hass.data.get(DOMAIN, {})
+                        .get(config_entry.entry_id, {})
+                        .get("langfuse_client")
+                    ):
+                        custom_api.set_langfuse_client(langfuse_client)
+                    apis_to_merge.append(custom_api)
+                    LOGGER.debug("Including Custom LLM API in merge")
+                elif api_id in registered:
+                    apis_to_merge.append(registered[api_id])
+                    LOGGER.debug("Including LLM API %s in merge", api_id)
+                else:
+                    raise HomeAssistantError(f"API {api_id} not found")
+
+            if len(apis_to_merge) == 1:
+                llm_api = await apis_to_merge[0].async_get_api_instance(llm_context)
             else:
-                LOGGER.debug("Using LLM API with ID %s", llm_api_name)
-                llm_api = await llm.async_get_api(
-                    hass,
-                    llm_api_name,
-                    llm_context,
+                llm_api = await llm.MergedAPI(apis_to_merge).async_get_api_instance(
+                    llm_context
                 )
 
         except HomeAssistantError as err:
             LOGGER.error(
-                "Error getting LLM API %s for %s: %s",
-                llm_api_name,
+                "Error getting LLM APIs %s for %s: %s",
+                api_ids,
                 DOMAIN,
                 err,
             )
@@ -92,10 +100,10 @@ async def async_update_llm_data(
                 "Error preparing LLM API",
             )
             raise ConverseError(
-                    f"Error getting LLM API {llm_api_name}",
-                    conversation_id=chat_log.conversation_id,
-                    response=intent_response,
-                ) from err
+                f"Error getting LLM APIs {api_ids}",
+                conversation_id=chat_log.conversation_id,
+                response=intent_response,
+            ) from err
     prompt_object = None
     try:
         prompt_context = PromptContext(
@@ -126,15 +134,16 @@ async def async_update_llm_data(
                 prompt_object, prompt = prompt
             LOGGER.debug("Base prompt: %s", prompt)
         else:
-            # We're using a different API, so we need to combine the base prompt with
-            # the API prompt
+            # Non-custom API (or merged APIs): base prompt plus API / merged API text
             base_prompt = await prompt_manager.async_get_base_prompt(
                 prompt_context,
                 config_entry,
             )
-            prompt_parts = [base_prompt]
-            prompt_parts.append(llm_api.api_prompt)
-            prompt = "\n".join(prompt_parts)
+            if isinstance(base_prompt, tuple):
+                prompt_object, base_text = base_prompt
+            else:
+                base_text = base_prompt
+            prompt = "\n".join([base_text, llm_api.api_prompt])
             LOGGER.debug("Combined prompt: %s", prompt)
 
     except TemplateError as err:
