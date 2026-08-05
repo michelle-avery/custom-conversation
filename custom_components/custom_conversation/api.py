@@ -36,7 +36,7 @@ from homeassistant.helpers import (
 from homeassistant.util.hass_dict import HassKey
 from homeassistant.util.json import JsonObjectType
 
-from .const import CONF_IGNORED_INTENTS, LLM_API_ID
+from .const import CONF_IGNORED_INTENTS, CONF_IGNORED_INTENTS_SECTION, LLM_API_ID
 from .prompt_manager import PromptContext, PromptManager
 
 
@@ -136,8 +136,11 @@ class CustomLLMAPI(llm.API):
         config_entry = self.conversation_config_entry
         # Get ignored intents from options, fallback to defaults
         if config_entry:
+            ignored_intents_section = config_entry.options.get(
+                CONF_IGNORED_INTENTS_SECTION, {}
+            )
             ignore_intents = set(
-                config_entry.options.get(
+                ignored_intents_section.get(
                     CONF_IGNORED_INTENTS, llm.AssistAPI.IGNORE_INTENTS
                 )
             )
