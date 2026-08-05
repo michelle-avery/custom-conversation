@@ -521,14 +521,23 @@ class CustomConversationOptionsFlow(OptionsFlow):
                 )
                 processed_input[CONF_IGNORED_INTENTS_SECTION] = ignored_intents_section
 
-            # If any of the custom prompts are an empty string, use the defaults
+            # ha-form omits an optional text field from the submitted data
+            # entirely when the user clears it, so a missing key here means
+            # the field was deliberately emptied, not that it was never
+            # configured (an options-flow re-edit always has prior values
+            # backing the schema's suggested_value). Preserve that as "",
+            # rather than reintroducing the old value or a hardcoded default.
             prompts = processed_input.get(CONF_CUSTOM_PROMPTS_SECTION, {})
-            for prompt in prompts:
-                if not prompts.get(prompt):
-                    prompts[prompt] = DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION].get(
-                        prompt
-                    )
+            for prompt_key in DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION]:
+                prompts.setdefault(prompt_key, "")
             processed_input[CONF_CUSTOM_PROMPTS_SECTION] = prompts
+
+            langfuse_options = processed_input.get(CONF_LANGFUSE_SECTION, {})
+            for lf_key, lf_default in DEFAULT_OPTIONS[CONF_LANGFUSE_SECTION].items():
+                if lf_key not in langfuse_options:
+                    langfuse_options[lf_key] = "" if isinstance(lf_default, str) else lf_default
+            processed_input[CONF_LANGFUSE_SECTION] = langfuse_options
+
             return self.async_create_entry(title="", data=processed_input)
 
         # Build schema for options
@@ -602,69 +611,85 @@ class CustomConversationOptionsFlow(OptionsFlow):
                         {
                             vol.Optional(
                                 CONF_INSTRUCTIONS_PROMPT,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(
-                                    CONF_INSTRUCTIONS_PROMPT,
-                                    DEFAULT_INSTRUCTIONS_PROMPT,
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(
+                                        CONF_INSTRUCTIONS_PROMPT,
+                                        DEFAULT_INSTRUCTIONS_PROMPT,
+                                    )
+                                },
                             ): TemplateSelector(),
                             vol.Optional(
                                 CONF_PROMPT_BASE,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(CONF_PROMPT_BASE, DEFAULT_BASE_PROMPT),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(CONF_PROMPT_BASE, DEFAULT_BASE_PROMPT)
+                                },
                             ): TemplateSelector(),
                             vol.Optional(
                                 CONF_PROMPT_NO_ENABLED_ENTITIES,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(
-                                    CONF_PROMPT_NO_ENABLED_ENTITIES,
-                                    DEFAULT_PROMPT_NO_ENABLED_ENTITIES,
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(
+                                        CONF_PROMPT_NO_ENABLED_ENTITIES,
+                                        DEFAULT_PROMPT_NO_ENABLED_ENTITIES,
+                                    )
+                                },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                             vol.Optional(
                                 CONF_API_PROMPT_BASE,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(CONF_API_PROMPT_BASE, DEFAULT_API_PROMPT_BASE),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(CONF_API_PROMPT_BASE, DEFAULT_API_PROMPT_BASE)
+                                },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                             vol.Optional(
                                 CONF_PROMPT_DEVICE_KNOWN_LOCATION,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(
-                                    CONF_PROMPT_DEVICE_KNOWN_LOCATION,
-                                    DEFAULT_API_PROMPT_DEVICE_KNOWN_LOCATION,
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(
+                                        CONF_PROMPT_DEVICE_KNOWN_LOCATION,
+                                        DEFAULT_API_PROMPT_DEVICE_KNOWN_LOCATION,
+                                    )
+                                },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                             vol.Optional(
                                 CONF_PROMPT_DEVICE_UNKNOWN_LOCATION,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(
-                                    CONF_PROMPT_DEVICE_UNKNOWN_LOCATION,
-                                    DEFAULT_API_PROMPT_DEVICE_UNKNOWN_LOCATION,
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(
+                                        CONF_PROMPT_DEVICE_UNKNOWN_LOCATION,
+                                        DEFAULT_API_PROMPT_DEVICE_UNKNOWN_LOCATION,
+                                    )
+                                },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                             vol.Optional(
                                 CONF_PROMPT_TIMERS_UNSUPPORTED,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(
-                                    CONF_PROMPT_TIMERS_UNSUPPORTED,
-                                    DEFAULT_API_PROMPT_TIMERS_UNSUPPORTED,
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(
+                                        CONF_PROMPT_TIMERS_UNSUPPORTED,
+                                        DEFAULT_API_PROMPT_TIMERS_UNSUPPORTED,
+                                    )
+                                },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                             vol.Optional(
                                 CONF_PROMPT_EXPOSED_ENTITIES,
-                                default=options.get(
-                                    CONF_CUSTOM_PROMPTS_SECTION, {}
-                                ).get(
-                                    CONF_PROMPT_EXPOSED_ENTITIES,
-                                    DEFAULT_API_PROMPT_EXPOSED_ENTITIES,
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_CUSTOM_PROMPTS_SECTION, {}
+                                    ).get(
+                                        CONF_PROMPT_EXPOSED_ENTITIES,
+                                        DEFAULT_API_PROMPT_EXPOSED_ENTITIES,
+                                    )
+                                },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                         }
                     )
@@ -681,45 +706,59 @@ class CustomConversationOptionsFlow(OptionsFlow):
                             ): bool,
                             vol.Optional(
                                 CONF_LANGFUSE_HOST,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_HOST, ""
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_HOST, "")
+                                },
                             ): str,
                             vol.Optional(
                                 CONF_LANGFUSE_PUBLIC_KEY,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_PUBLIC_KEY, ""
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_PUBLIC_KEY, "")
+                                },
                             ): str,
                             vol.Optional(
                                 CONF_LANGFUSE_SECRET_KEY,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_SECRET_KEY, ""
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_SECRET_KEY, "")
+                                },
                             ): TextSelector(TextSelectorConfig(type="password")),
                             vol.Optional(
                                 CONF_LANGFUSE_BASE_PROMPT_ID,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_BASE_PROMPT_ID, ""
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_BASE_PROMPT_ID, "")
+                                },
                             ): str,
                             vol.Optional(
                                 CONF_LANGFUSE_BASE_PROMPT_LABEL,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_BASE_PROMPT_LABEL, "production"
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_BASE_PROMPT_LABEL, "production")
+                                },
                             ): str,
                             vol.Optional(
                                 CONF_LANGFUSE_API_PROMPT_ID,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_API_PROMPT_ID, ""
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_API_PROMPT_ID, "")
+                                },
                             ): str,
                             vol.Optional(
                                 CONF_LANGFUSE_API_PROMPT_LABEL,
-                                default=options.get(CONF_LANGFUSE_SECTION, {}).get(
-                                    CONF_LANGFUSE_API_PROMPT_LABEL, "production"
-                                ),
+                                description={
+                                    "suggested_value": options.get(
+                                        CONF_LANGFUSE_SECTION, {}
+                                    ).get(CONF_LANGFUSE_API_PROMPT_LABEL, "production")
+                                },
                             ): str,
                             vol.Optional(
                                 CONF_LANGFUSE_TRACING_ENABLED,
