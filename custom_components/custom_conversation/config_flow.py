@@ -509,11 +509,13 @@ class CustomConversationOptionsFlow(OptionsFlow):
             if processed_input.get(CONF_LLM_HASS_API) == "none":
                 processed_input.pop(CONF_LLM_HASS_API, None)  # Remove if 'none'
 
-            # Handle empty ignored intents - use default
+            # Only fall back to the default ignore list if the key is truly
+            # absent; a deliberately empty selection (ignore nothing) is a
+            # valid choice and must be preserved as-is.
             ignored_intents_section = processed_input.get(
                 CONF_IGNORED_INTENTS_SECTION, {}
             )
-            if not ignored_intents_section.get(CONF_IGNORED_INTENTS):
+            if CONF_IGNORED_INTENTS not in ignored_intents_section:
                 ignored_intents_section[CONF_IGNORED_INTENTS] = (
                     llm.AssistAPI.IGNORE_INTENTS
                 )

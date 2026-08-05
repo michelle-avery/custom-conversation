@@ -266,7 +266,7 @@ async def test_options_flow(hass: HomeAssistant, config_entry: MockConfigEntry):
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_API_PROMPT_ID] == "test-api-prompt-id"
 
 async def test_options_flow_empty_fields_reset(hass: HomeAssistant, config_entry):
-    """Test config flow options with empty fields reset to recommended."""
+    """Test config flow options with empty fields reset to recommended (ignored intents empty selection is preserved, not reset)."""
 
     config_entry.add_to_hass(hass)
 
@@ -319,7 +319,7 @@ async def test_options_flow_empty_fields_reset(hass: HomeAssistant, config_entry
         assert result["type"] == FlowResultType.CREATE_ENTRY
         assert CONF_LLM_HASS_API not in result["data"]
         assert "agents" in result["data"]
-        assert result["data"][CONF_IGNORED_INTENTS_SECTION][CONF_IGNORED_INTENTS] == llm.AssistAPI.IGNORE_INTENTS
+        assert result["data"][CONF_IGNORED_INTENTS_SECTION][CONF_IGNORED_INTENTS] == []
         assert result["data"][CONF_AGENTS_SECTION][CONF_ENABLE_HASS_AGENT] is True
         assert result["data"][CONF_AGENTS_SECTION][CONF_ENABLE_LLM_AGENT] is False
         # Assert LLM params are direct options
