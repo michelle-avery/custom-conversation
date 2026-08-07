@@ -55,6 +55,7 @@ from .const import (
     CONF_PROMPT_EXPOSED_ENTITIES,
     CONF_PROMPT_NO_ENABLED_ENTITIES,
     CONF_PROMPT_TIMERS_UNSUPPORTED,
+    CONF_RESET_PROMPTS_TO_DEFAULT,
     CONF_SECONDARY_API_KEY,
     CONF_SECONDARY_BASE_URL,
     CONF_SECONDARY_CHAT_MODEL,
@@ -525,9 +526,14 @@ class CustomConversationOptionsFlow(OptionsFlow):
             # configured (an options-flow re-edit always has prior values
             # backing the schema's suggested_value). Preserve that as "",
             # rather than reintroducing the old value or a hardcoded default.
+            # The reset checkbox is the escape hatch for users who want the
+            # original built-in prompts back without digging through source.
             prompts = processed_input.get(CONF_CUSTOM_PROMPTS_SECTION, {})
-            for prompt_key in DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION]:
-                prompts.setdefault(prompt_key, "")
+            if prompts.pop(CONF_RESET_PROMPTS_TO_DEFAULT, False):
+                prompts = dict(DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION])
+            else:
+                for prompt_key in DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION]:
+                    prompts.setdefault(prompt_key, "")
             processed_input[CONF_CUSTOM_PROMPTS_SECTION] = prompts
 
             langfuse_options = processed_input.get(CONF_LANGFUSE_SECTION, {})
@@ -689,6 +695,10 @@ class CustomConversationOptionsFlow(OptionsFlow):
                                     )
                                 },
                             ): TextSelector(TextSelectorConfig(multiline=True)),
+                            vol.Optional(
+                                CONF_RESET_PROMPTS_TO_DEFAULT,
+                                default=False,
+                            ): bool,
                         }
                     )
                 ),

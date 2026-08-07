@@ -33,6 +33,7 @@ from custom_components.custom_conversation.const import (
     CONF_PROMPT_EXPOSED_ENTITIES,
     CONF_PROMPT_NO_ENABLED_ENTITIES,
     CONF_PROMPT_TIMERS_UNSUPPORTED,
+    CONF_RESET_PROMPTS_TO_DEFAULT,
     CONF_SECONDARY_PROVIDER_ENABLED,
     CONF_TEMPERATURE,
     CONF_TOP_P,
@@ -265,8 +266,8 @@ async def test_options_flow(hass: HomeAssistant, config_entry: MockConfigEntry):
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_BASE_PROMPT_ID] == "test-base-prompt-id"
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_API_PROMPT_ID] == "test-api-prompt-id"
 
-async def test_options_flow_empty_fields_reset(hass: HomeAssistant, config_entry):
-    """Test config flow options with empty fields reset to recommended."""
+async def test_options_flow_empty_fields_stay_empty(hass: HomeAssistant, config_entry):
+    """Test config flow options: blank prompt/langfuse fields save as explicit empty, not defaults."""
 
     config_entry.add_to_hass(hass)
 
@@ -326,15 +327,15 @@ async def test_options_flow_empty_fields_reset(hass: HomeAssistant, config_entry
         assert result["data"][CONF_TEMPERATURE] == 0.5
         assert result["data"][CONF_TOP_P] == 0.5
         assert result["data"][CONF_MAX_TOKENS] == 50
-        # Assert other sections
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_INSTRUCTIONS_PROMPT].strip() == DEFAULT_INSTRUCTIONS_PROMPT.strip()
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_BASE] == DEFAULT_BASE_PROMPT
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_NO_ENABLED_ENTITIES] == DEFAULT_PROMPT_NO_ENABLED_ENTITIES
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_API_PROMPT_BASE] == DEFAULT_API_PROMPT_BASE
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_DEVICE_KNOWN_LOCATION] == DEFAULT_API_PROMPT_DEVICE_KNOWN_LOCATION
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_DEVICE_UNKNOWN_LOCATION] == DEFAULT_API_PROMPT_DEVICE_UNKNOWN_LOCATION
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_TIMERS_UNSUPPORTED] == DEFAULT_API_PROMPT_TIMERS_UNSUPPORTED
-        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_EXPOSED_ENTITIES] == DEFAULT_API_PROMPT_EXPOSED_ENTITIES
+        # Assert other sections: blank fields save as explicit empty, not defaults
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_INSTRUCTIONS_PROMPT] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_BASE] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_NO_ENABLED_ENTITIES] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_API_PROMPT_BASE] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_DEVICE_KNOWN_LOCATION] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_DEVICE_UNKNOWN_LOCATION] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_TIMERS_UNSUPPORTED] == ""
+        assert result["data"][CONF_CUSTOM_PROMPTS_SECTION][CONF_PROMPT_EXPOSED_ENTITIES] == ""
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_ENABLE_LANGFUSE] is False
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_SECRET_KEY] == ""
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_PUBLIC_KEY] == ""
@@ -342,6 +343,68 @@ async def test_options_flow_empty_fields_reset(hass: HomeAssistant, config_entry
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_BASE_PROMPT_ID] == ""
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_API_PROMPT_ID] == ""
         assert result["data"][CONF_LANGFUSE_SECTION][CONF_LANGFUSE_TRACING_ENABLED] is False
+
+
+async def test_options_flow_reset_prompts_to_default(hass: HomeAssistant, config_entry):
+    """Test the reset checkbox restores built-in prompt defaults, overriding any submitted values."""
+
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.custom_conversation.async_setup", return_value=True
+    ), patch(
+        "custom_components.custom_conversation.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.options.async_init(config_entry.entry_id)
+
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={
+                CONF_LLM_HASS_API: "none",
+                CONF_IGNORED_INTENTS_SECTION: {
+                    CONF_IGNORED_INTENTS: [],
+                },
+                CONF_AGENTS_SECTION: {
+                    CONF_ENABLE_HASS_AGENT: True,
+                    CONF_ENABLE_LLM_AGENT: False,
+                },
+                CONF_TEMPERATURE: 0.5,
+                CONF_TOP_P: 0.5,
+                CONF_MAX_TOKENS: 50,
+                CONF_CUSTOM_PROMPTS_SECTION: {
+                    CONF_INSTRUCTIONS_PROMPT: "some custom text that should be discarded",
+                    CONF_PROMPT_BASE: "",
+                    CONF_PROMPT_NO_ENABLED_ENTITIES: "",
+                    CONF_API_PROMPT_BASE: "",
+                    CONF_PROMPT_DEVICE_KNOWN_LOCATION: "",
+                    CONF_PROMPT_DEVICE_UNKNOWN_LOCATION: "",
+                    CONF_PROMPT_TIMERS_UNSUPPORTED: "",
+                    CONF_PROMPT_EXPOSED_ENTITIES: "",
+                    CONF_RESET_PROMPTS_TO_DEFAULT: True,
+                },
+                CONF_LANGFUSE_SECTION: {
+                    CONF_ENABLE_LANGFUSE: False,
+                    CONF_LANGFUSE_SECRET_KEY: "",
+                    CONF_LANGFUSE_PUBLIC_KEY: "",
+                    CONF_LANGFUSE_HOST: "",
+                    CONF_LANGFUSE_BASE_PROMPT_ID: "",
+                    CONF_LANGFUSE_API_PROMPT_ID: "",
+                    CONF_LANGFUSE_TRACING_ENABLED: False,
+                },
+            },
+        )
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        prompts = result["data"][CONF_CUSTOM_PROMPTS_SECTION]
+        assert prompts[CONF_INSTRUCTIONS_PROMPT].strip() == DEFAULT_INSTRUCTIONS_PROMPT.strip()
+        assert prompts[CONF_PROMPT_BASE] == DEFAULT_BASE_PROMPT
+        assert prompts[CONF_PROMPT_NO_ENABLED_ENTITIES] == DEFAULT_PROMPT_NO_ENABLED_ENTITIES
+        assert prompts[CONF_API_PROMPT_BASE] == DEFAULT_API_PROMPT_BASE
+        assert prompts[CONF_PROMPT_DEVICE_KNOWN_LOCATION] == DEFAULT_API_PROMPT_DEVICE_KNOWN_LOCATION
+        assert prompts[CONF_PROMPT_DEVICE_UNKNOWN_LOCATION] == DEFAULT_API_PROMPT_DEVICE_UNKNOWN_LOCATION
+        assert prompts[CONF_PROMPT_TIMERS_UNSUPPORTED] == DEFAULT_API_PROMPT_TIMERS_UNSUPPORTED
+        assert prompts[CONF_PROMPT_EXPOSED_ENTITIES] == DEFAULT_API_PROMPT_EXPOSED_ENTITIES
+        assert CONF_RESET_PROMPTS_TO_DEFAULT not in prompts
 
 
 async def test_options_flow_ignored_intents(hass: HomeAssistant, config_entry):

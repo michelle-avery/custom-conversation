@@ -45,6 +45,7 @@ CONVERSATION_ENDED_EVENT = f"{DOMAIN}_conversation_ended"
 CONVERSATION_ERROR_EVENT = f"{DOMAIN}_conversation_error"
 
 CONF_CUSTOM_PROMPTS_SECTION = "custom_prompts"
+CONF_RESET_PROMPTS_TO_DEFAULT = "reset_prompts_to_default"
 CONF_PROMPT_BASE = "prompt_base"
 DEFAULT_BASE_PROMPT = (
     'Current time is {{ now().strftime("%H:%M:%S") }}. '
