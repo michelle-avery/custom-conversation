@@ -526,13 +526,18 @@ class CustomConversationOptionsFlow(OptionsFlow):
             # configured (an options-flow re-edit always has prior values
             # backing the schema's suggested_value). Preserve that as "",
             # rather than reintroducing the old value or a hardcoded default.
-            # The reset checkbox is the escape hatch for users who want the
-            # original built-in prompts back without digging through source.
+            # The reset multi-select is the escape hatch for users who want
+            # individual built-in prompts back without digging through
+            # source; selected keys override whatever was typed/left blank
+            # for that field.
             prompts = processed_input.get(CONF_CUSTOM_PROMPTS_SECTION, {})
-            if prompts.pop(CONF_RESET_PROMPTS_TO_DEFAULT, False):
-                prompts = dict(DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION])
-            else:
-                for prompt_key in DEFAULT_OPTIONS[CONF_CUSTOM_PROMPTS_SECTION]:
+            reset_keys = set(prompts.pop(CONF_RESET_PROMPTS_TO_DEFAULT, []))
+            for prompt_key, prompt_default in DEFAULT_OPTIONS[
+                CONF_CUSTOM_PROMPTS_SECTION
+            ].items():
+                if prompt_key in reset_keys:
+                    prompts[prompt_key] = prompt_default
+                else:
                     prompts.setdefault(prompt_key, "")
             processed_input[CONF_CUSTOM_PROMPTS_SECTION] = prompts
 
@@ -697,8 +702,46 @@ class CustomConversationOptionsFlow(OptionsFlow):
                             ): TextSelector(TextSelectorConfig(multiline=True)),
                             vol.Optional(
                                 CONF_RESET_PROMPTS_TO_DEFAULT,
-                                default=False,
-                            ): bool,
+                                default=[],
+                            ): SelectSelector(
+                                SelectSelectorConfig(
+                                    options=[
+                                        SelectOptionDict(
+                                            value=CONF_INSTRUCTIONS_PROMPT,
+                                            label="Instructions Prompt",
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_PROMPT_BASE, label="Base Prompt"
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_PROMPT_NO_ENABLED_ENTITIES,
+                                            label="No Enabled Entities Prompt",
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_API_PROMPT_BASE,
+                                            label="API Base Prompt",
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_PROMPT_DEVICE_KNOWN_LOCATION,
+                                            label="Device Known Location Prompt",
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_PROMPT_DEVICE_UNKNOWN_LOCATION,
+                                            label="Device Unknown Location Prompt",
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_PROMPT_TIMERS_UNSUPPORTED,
+                                            label="Timers Unsupported Prompt",
+                                        ),
+                                        SelectOptionDict(
+                                            value=CONF_PROMPT_EXPOSED_ENTITIES,
+                                            label="Exposed Entities Prompt",
+                                        ),
+                                    ],
+                                    multiple=True,
+                                    sort=False,
+                                )
+                            ),
                         }
                     )
                 ),

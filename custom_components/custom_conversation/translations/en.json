@@ -100,7 +100,7 @@
               "prompt_device_unknown_location": "Device Unknown Location Prompt",
               "prompt_timers_unsupported": "Timers Unsupported Prompt",
               "prompt_exposed_entities": "Exposed Entities Prompt",
-              "reset_prompts_to_default": "Reset all prompts above to their built-in defaults"
+              "reset_prompts_to_default": "Reset selected prompts to defaults"
             },
             "data_description": {
               "prompt_base": "The base prompt included in every LLM prompt. Can be a template.",
@@ -110,7 +110,7 @@
               "prompt_device_unknown_location": "The prompt the API uses with the request comes from a device whose area is unknown.",
               "prompt_timers_unsupported": "The prompt the API includes if the request comes from a device that cannot set timers.",
               "prompt_exposed_entities": "The prompt the API includes prior to the list of exposed entities and areas.",
-              "reset_prompts_to_default": "Leaving a prompt field blank saves it as empty (no prompt sent). Check this and save to restore the original built-in text for every prompt above instead."
+              "reset_prompts_to_default": "Leaving a prompt field blank saves it as empty (no prompt sent). Select a prompt here and save to restore just that field to its original built-in text, regardless of what is typed in the field above."
             }
           },
           "langfuse": {

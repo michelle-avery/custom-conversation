@@ -346,7 +346,7 @@ async def test_options_flow_empty_fields_stay_empty(hass: HomeAssistant, config_
 
 
 async def test_options_flow_reset_prompts_to_default(hass: HomeAssistant, config_entry):
-    """Test the reset checkbox restores built-in prompt defaults, overriding any submitted values."""
+    """Test the reset multi-select restores built-in defaults only for the selected prompt fields."""
 
     config_entry.add_to_hass(hass)
 
@@ -381,7 +381,10 @@ async def test_options_flow_reset_prompts_to_default(hass: HomeAssistant, config
                     CONF_PROMPT_DEVICE_UNKNOWN_LOCATION: "",
                     CONF_PROMPT_TIMERS_UNSUPPORTED: "",
                     CONF_PROMPT_EXPOSED_ENTITIES: "",
-                    CONF_RESET_PROMPTS_TO_DEFAULT: True,
+                    CONF_RESET_PROMPTS_TO_DEFAULT: [
+                        CONF_INSTRUCTIONS_PROMPT,
+                        CONF_PROMPT_BASE,
+                    ],
                 },
                 CONF_LANGFUSE_SECTION: {
                     CONF_ENABLE_LANGFUSE: False,
@@ -396,14 +399,16 @@ async def test_options_flow_reset_prompts_to_default(hass: HomeAssistant, config
         )
         assert result["type"] == FlowResultType.CREATE_ENTRY
         prompts = result["data"][CONF_CUSTOM_PROMPTS_SECTION]
+        # Selected fields: reset to default, ignoring what was submitted
         assert prompts[CONF_INSTRUCTIONS_PROMPT].strip() == DEFAULT_INSTRUCTIONS_PROMPT.strip()
         assert prompts[CONF_PROMPT_BASE] == DEFAULT_BASE_PROMPT
-        assert prompts[CONF_PROMPT_NO_ENABLED_ENTITIES] == DEFAULT_PROMPT_NO_ENABLED_ENTITIES
-        assert prompts[CONF_API_PROMPT_BASE] == DEFAULT_API_PROMPT_BASE
-        assert prompts[CONF_PROMPT_DEVICE_KNOWN_LOCATION] == DEFAULT_API_PROMPT_DEVICE_KNOWN_LOCATION
-        assert prompts[CONF_PROMPT_DEVICE_UNKNOWN_LOCATION] == DEFAULT_API_PROMPT_DEVICE_UNKNOWN_LOCATION
-        assert prompts[CONF_PROMPT_TIMERS_UNSUPPORTED] == DEFAULT_API_PROMPT_TIMERS_UNSUPPORTED
-        assert prompts[CONF_PROMPT_EXPOSED_ENTITIES] == DEFAULT_API_PROMPT_EXPOSED_ENTITIES
+        # Unselected fields: submitted blank stays blank, not reset
+        assert prompts[CONF_PROMPT_NO_ENABLED_ENTITIES] == ""
+        assert prompts[CONF_API_PROMPT_BASE] == ""
+        assert prompts[CONF_PROMPT_DEVICE_KNOWN_LOCATION] == ""
+        assert prompts[CONF_PROMPT_DEVICE_UNKNOWN_LOCATION] == ""
+        assert prompts[CONF_PROMPT_TIMERS_UNSUPPORTED] == ""
+        assert prompts[CONF_PROMPT_EXPOSED_ENTITIES] == ""
         assert CONF_RESET_PROMPTS_TO_DEFAULT not in prompts
 
 
