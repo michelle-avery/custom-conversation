@@ -509,16 +509,12 @@ class CustomConversationOptionsFlow(OptionsFlow):
             if processed_input.get(CONF_LLM_HASS_API) == "none":
                 processed_input.pop(CONF_LLM_HASS_API, None)  # Remove if 'none'
 
-            # Only fall back to the default ignore list if the key is truly
-            # absent; a deliberately empty selection (ignore nothing) is a
-            # valid choice and must be preserved as-is.
+            # Handle empty ignored intents - use default
             ignored_intents_section = processed_input.get(
                 CONF_IGNORED_INTENTS_SECTION, {}
             )
-            if CONF_IGNORED_INTENTS not in ignored_intents_section:
-                ignored_intents_section[CONF_IGNORED_INTENTS] = (
-                    llm.AssistAPI.IGNORE_INTENTS
-                )
+            if not ignored_intents_section.get(CONF_IGNORED_INTENTS):
+                ignored_intents_section[CONF_IGNORED_INTENTS] = []
                 processed_input[CONF_IGNORED_INTENTS_SECTION] = ignored_intents_section
 
             # If any of the custom prompts are an empty string, use the defaults
@@ -536,7 +532,7 @@ class CustomConversationOptionsFlow(OptionsFlow):
         hass = self.hass
         hass_apis = self._get_hass_apis(hass)
         intents = await self._get_intents(hass)
-        default_ignored = llm.AssistAPI.IGNORE_INTENTS
+        default_ignored = []
 
         # Define the schema for options, using existing options as defaults
         schema = vol.Schema(
@@ -770,13 +766,10 @@ class CustomConversationOptionsFlow(OptionsFlow):
 
     async def _get_intents(self, hass: HomeAssistant) -> list[SelectOptionDict]:
         """Get available intents."""
-        hass_recommended_ignored = llm.AssistAPI.IGNORE_INTENTS
         return [
             {
                 "value": intent_obj.intent_type,
-                "label": f"{intent_obj.intent_type} (Hass Recommended)"
-                if intent_obj.intent_type in hass_recommended_ignored
-                else intent_obj.intent_type,
+                "label": intent_obj.intent_type,
             }
             for intent_obj in intent.async_get(hass)
         ]
