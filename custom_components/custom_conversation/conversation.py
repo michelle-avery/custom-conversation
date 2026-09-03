@@ -18,7 +18,19 @@ from litellm.types.completion import (
 )
 from litellm.types.llms.openai import ChatCompletionToolParam, Function
 from litellm.types.utils import StreamingChatCompletionChunk
-from voluptuous_openapi import convert
+from voluptuous_openapi import UNSUPPORTED, convert
+
+try:
+    # Home Assistant Core >= 2026.9 rebuilt `homeassistant.helpers.llm`'s
+    # selector-to-schema serializer around `probatio` instead of
+    # `voluptuous_openapi` (see home-assistant/core's llm.py). This
+    # integration still uses voluptuous_openapi's `convert()`, so its
+    # `UNSUPPORTED` sentinel needs translating -- see the comment in
+    # `_format_tool()` below. Optional: falls back to None on any HA Core
+    # version that predates this migration, where it's simply never used.
+    from probatio import UNSUPPORTED as _PROBATIO_UNSUPPORTED
+except ImportError:
+    _PROBATIO_UNSUPPORTED = None
 
 from homeassistant.components import conversation
 from homeassistant.components.conversation.chat_log import (
@@ -172,9 +184,26 @@ def _format_tool(
     tool: IntentTool, custom_serializer: Callable[[Any], Any] | None
 ) -> ChatCompletionToolParam:
     """Format tool specification."""
+    wrapped_serializer = custom_serializer
+    if custom_serializer is not None and _PROBATIO_UNSUPPORTED is not None:
+        # HA Core's `custom_serializer` (chat_log.llm_api.custom_serializer)
+        # returns probatio's UNSUPPORTED sentinel for anything it doesn't
+        # recognize as a selector -- a different object than
+        # voluptuous_openapi's own UNSUPPORTED, which is what convert()
+        # actually checks for before falling back to its own default
+        # schema generation. Without this translation, EVERY tool
+        # parameter (not just genuinely unsupported ones) ends up with the
+        # raw probatio.UNSUPPORTED object embedded as its schema, which
+        # then fails JSON serialization when the request is sent.
+        def wrapped_serializer(schema: Any) -> Any:
+            result = custom_serializer(schema)
+            if result is _PROBATIO_UNSUPPORTED:
+                return UNSUPPORTED
+            return result
+
     tool_spec = {
         "name": tool.name,
-        "parameters": convert(tool.parameters, custom_serializer=custom_serializer),
+        "parameters": convert(tool.parameters, custom_serializer=wrapped_serializer),
     }
     if tool.description:
         tool_spec["description"] = tool.description
