@@ -3,8 +3,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from litellm import RateLimitError
 import pytest
+import voluptuous as vol
+from voluptuous_openapi import UNSUPPORTED as VOL_OPENAPI_UNSUPPORTED
 
 from custom_components.custom_conversation import CustomConversationConfigEntry
+from custom_components.custom_conversation import conversation as conversation_module
 from custom_components.custom_conversation.const import (
     CONF_AGENTS_SECTION,
     CONF_ENABLE_HASS_AGENT,
@@ -12,13 +15,29 @@ from custom_components.custom_conversation.const import (
     CONVERSATION_ERROR_EVENT,
     LLM_API_ID,
 )
-from custom_components.custom_conversation.conversation import CustomConversationEntity
+from custom_components.custom_conversation.conversation import (
+    CustomConversationEntity,
+    _format_tool,
+)
 from homeassistant.components import conversation
 from homeassistant.const import CONF_LLM_HASS_API
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import intent
+from homeassistant.helpers import intent, llm
 from homeassistant.setup import async_setup_component
+
+
+class _StubIntentTool(llm.Tool):
+    """Minimal llm.Tool stand-in for exercising _format_tool directly."""
+
+    def __init__(self, name, parameters, description=None):
+        self.name = name
+        self.parameters = parameters
+        self.description = description
+
+    async def async_call(self, hass, tool_input, llm_context):
+        """Not exercised by these tests."""
+        raise NotImplementedError
 
 
 async def test_custom_conversation_entity_initialization(hass: HomeAssistant, config_entry: CustomConversationConfigEntry):
@@ -237,3 +256,62 @@ async def test_async_fire_conversation_error(hass: HomeAssistant, config_entry: 
     assert event_data["device_area"] == "Living Room"
     assert event_data["request"] == "Turn on the lights"
     assert event_data["error"] == "Test error message"
+
+def test_format_tool_passes_serializer_through_without_probatio():
+    """On HA Core versions that predate the probatio migration (_PROBATIO_UNSUPPORTED
+    is None), _format_tool must not wrap custom_serializer at all -- convert() should
+    see it exactly as HA passed it in, with no behavior change from this fix.
+    """
+    assert conversation_module._PROBATIO_UNSUPPORTED is None
+
+    tool = _StubIntentTool("test_tool", vol.Schema({vol.Optional("value"): str}))
+
+    def custom_serializer(value):
+        # Recognizes nothing here, so it always defers to voluptuous_openapi's
+        # own conversion via its own UNSUPPORTED sentinel.
+        return VOL_OPENAPI_UNSUPPORTED
+
+    tool_spec = _format_tool(tool, custom_serializer)
+
+    assert tool_spec["function"]["parameters"] == {
+        "type": "object",
+        "properties": {"value": {"type": "string"}},
+        "required": [],
+    }
+
+def test_format_tool_translates_probatio_unsupported_sentinel():
+    """A probatio.UNSUPPORTED result from custom_serializer must be translated to
+    voluptuous_openapi's own UNSUPPORTED before convert() sees it (restoring its
+    normal fallback schema generation), while a real value returned by
+    custom_serializer for a selector it does recognize must still pass through
+    untouched.
+    """
+    probatio_sentinel = object()
+    known_marker = object()
+
+    def custom_serializer(value):
+        if value is known_marker:
+            return {"type": "string", "description": "known selector"}
+        return probatio_sentinel
+
+    tool = _StubIntentTool(
+        "test_tool",
+        vol.Schema(
+            {
+                vol.Optional("known"): known_marker,
+                vol.Optional("mystery"): str,
+            }
+        ),
+    )
+
+    with patch.object(conversation_module, "_PROBATIO_UNSUPPORTED", probatio_sentinel):
+        tool_spec = _format_tool(tool, custom_serializer)
+
+    properties = tool_spec["function"]["parameters"]["properties"]
+    # custom_serializer handled "known" directly -> its return value is passed
+    # through as-is.
+    assert properties["known"] == {"type": "string", "description": "known selector"}
+    # custom_serializer returned probatio's sentinel for "mystery" -> translated to
+    # voluptuous_openapi's UNSUPPORTED -> convert() fell back to its own default
+    # schema generation for a plain str.
+    assert properties["mystery"] == {"type": "string"}
