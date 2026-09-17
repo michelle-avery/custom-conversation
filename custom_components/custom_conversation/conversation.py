@@ -35,12 +35,16 @@ from homeassistant.helpers import chat_session, device_registry as dr, intent, l
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import CustomConversationConfigEntry
-from .api import IntentTool
+from .api import IntentTool, _get_exposed_entities
 from .cc_llm import async_update_llm_data
 from .const import (
     CONF_AGENTS_SECTION,
     CONF_ENABLE_HASS_AGENT,
     CONF_ENABLE_LLM_AGENT,
+    CONF_ESCALATION_ACKNOWLEDGEMENT,
+    CONF_ESCALATION_DENYLIST,
+    CONF_ESCALATION_DOCTRINE_ENTITY,
+    CONF_ESCALATION_MODE,
     CONF_LANGFUSE_HOST,
     CONF_LANGFUSE_PUBLIC_KEY,
     CONF_LANGFUSE_SECRET_KEY,
@@ -66,8 +70,20 @@ from .const import (
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
     DOMAIN,
+    ESCALATION_EVENT,
+    ESCALATION_MODE_ASYNC,
+    ESCALATION_MODE_OFF,
+    ESCALATION_MODE_SYNC,
     HOME_ASSISTANT_AGENT,
     LOGGER,
+)
+from .escalation import (
+    DEFAULT_ACKNOWLEDGEMENT,
+    DEFAULT_DENYLIST,
+    DEFAULT_DOCTRINE,
+    acknowledgement_for,
+    classify_transcript,
+    post_check_reason,
 )
 from .prompt_manager import PromptManager
 
@@ -430,6 +446,35 @@ class CustomConversationEntity(
         }
 
         self.hass.bus.async_fire(CONVERSATION_STARTED_EVENT, event_data)
+        escalation_mode = options.get(CONF_ESCALATION_MODE, ESCALATION_MODE_OFF)
+        force_secondary = False
+        if escalation_mode != ESCALATION_MODE_OFF:
+            doctrine = DEFAULT_DOCTRINE
+            doctrine_entity = options.get(CONF_ESCALATION_DOCTRINE_ENTITY, "")
+            if doctrine_entity:
+                doctrine_state = self.hass.states.get(doctrine_entity)
+                if doctrine_state and doctrine_state.domain == "input_text":
+                    doctrine = doctrine_state.state
+            classification = classify_transcript(
+                user_input.text,
+                doctrine,
+                options.get(CONF_ESCALATION_DENYLIST, DEFAULT_DENYLIST),
+            )
+            if classification.escalate:
+                if escalation_mode == ESCALATION_MODE_ASYNC:
+                    return self._async_escalation_result(
+                        user_input,
+                        device_data,
+                        "doctrine",
+                        options.get(
+                            CONF_ESCALATION_ACKNOWLEDGEMENT,
+                            DEFAULT_ACKNOWLEDGEMENT,
+                        ),
+                    )
+                if escalation_mode == ESCALATION_MODE_SYNC and self.entry.data.get(
+                    CONF_SECONDARY_PROVIDER_ENABLED
+                ):
+                    force_secondary = True
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_error(
             intent.IntentResponseErrorCode.UNKNOWN,
@@ -486,9 +531,20 @@ class CustomConversationEntity(
                 ):
                     LOGGER.debug("Trying to handle the message with LLM")
                     result, llm_data = await self._async_handle_message_with_llm(
-                        user_input, chat_log
+                        user_input, chat_log, force_secondary=force_secondary
                     )
                     LOGGER.debug("Received response: %s", result.response.speech)
+                    escalation_reason = llm_data.get("escalation_reason")
+                    if escalation_reason and escalation_mode == ESCALATION_MODE_ASYNC:
+                        result = self._async_escalation_result(
+                            user_input,
+                            device_data,
+                            escalation_reason,
+                            options.get(
+                                CONF_ESCALATION_ACKNOWLEDGEMENT,
+                                DEFAULT_ACKNOWLEDGEMENT,
+                            ),
+                        )
                     if result.response.error_code is None:
                         await self._async_fire_conversation_ended(
                             result,
@@ -526,6 +582,33 @@ class CustomConversationEntity(
                 )
                 raise HomeAssistantError("Error talking to OpenAI API") from err
         return result
+
+    def _async_escalation_result(
+        self,
+        user_input: conversation.ConversationInput,
+        device_data: dict[str, Any],
+        reason: str,
+        acknowledgement: str,
+    ) -> conversation.ConversationResult:
+        """End the voice turn while an automation handles the escalation."""
+        self.hass.bus.async_fire(
+            ESCALATION_EVENT,
+            {
+                "text": user_input.text,
+                "conversation_id": user_input.conversation_id,
+                "device_id": device_data["device_id"],
+                "language": user_input.language,
+                "reason": reason,
+                "correlation_id": user_input.context.id,
+            },
+        )
+        response = intent.IntentResponse(language=user_input.language)
+        response.async_set_speech(acknowledgement_for(acknowledgement))
+        return conversation.ConversationResult(
+            response=response,
+            conversation_id=user_input.conversation_id,
+            continue_conversation=False,
+        )
 
     @observe(name="cc_handle_message_with_hass")
     async def _async_handle_message_with_hass(
@@ -575,6 +658,7 @@ class CustomConversationEntity(
         self,
         user_input: conversation.ConversationInput,
         chat_log: conversation.ChatLog,
+        force_secondary: bool = False,
     ) -> tuple[conversation.ConversationResult, dict]:
         """Process a sentence with the llm."""
 
@@ -624,6 +708,7 @@ class CustomConversationEntity(
                 tools=tools,
                 conversation_id=chat_log.conversation_id,
                 prompt=prompt_object,
+                force_secondary=force_secondary,
             )
 
             try:
@@ -658,6 +743,17 @@ class CustomConversationEntity(
         intent_response.async_set_speech(final_assistant_message.content or "")
 
         llm_details, new_tags = _get_llm_details(messages)
+        if (
+            not force_secondary
+            and self.entry.options.get(CONF_ESCALATION_MODE, ESCALATION_MODE_OFF)
+            == ESCALATION_MODE_ASYNC
+        ):
+            speech = final_assistant_message.content or ""
+            exposed = _get_exposed_entities(
+                self.hass, "conversation", include_state=False
+            )
+            if reason := post_check_reason(speech, messages, set(exposed or {})):
+                llm_details["escalation_reason"] = reason
         get_langfuse_client().update_current_span(metadata={"tags": new_tags})
 
         return conversation.ConversationResult(
@@ -679,6 +775,7 @@ class CustomConversationEntity(
         tools: list[ChatCompletionToolParam] | None,
         conversation_id: str,
         prompt: Union["PromptClient", None] = None,
+        force_secondary: bool = False,
     ) -> AsyncGenerator[AssistantContentDeltaDict, None]:
         """Generate a completion stream from the LLM."""
         cleaned_input = {
@@ -736,7 +833,7 @@ class CustomConversationEntity(
         langfuse_params = entry.options.get(CONF_LANGFUSE_SECTION, {})
 
         completion_kwargs = {
-            "model": primary_model,
+            "model": secondary_model if force_secondary else primary_model,
             "messages": messages,
             "tools": tools,
             "max_tokens": max_tokens,
