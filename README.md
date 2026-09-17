@@ -85,6 +85,14 @@ functionality of this component.
 - **Temperature**: Controls response randomness (0-2, default: 1.0)
 - **Top P**: Controls response diversity (0-1, default: 1.0)
 
+### Escalation
+- **Escalation mode**: `off`, `sync`, or `async` (default: `off`). `off` preserves the existing response path.
+- **Escalation doctrine input_text**: Optional `input_text` entity whose semicolon-separated phrases are checked before the primary model. If empty, the built-in doctrine is used.
+- **Escalation acknowledgement**: Speech returned by `async` escalation (default: "Let me look into that and get back to you.").
+- **Escalation denylist**: Semicolon-separated security phrases checked before the doctrine (default: `gate; lock; alarm; unlock; open; arm; disarm; siren`). A denylist match never escalates.
+
+Async escalation returns the acknowledgement with `continue_conversation: false` and fires `custom_conversation_escalated` with `text`, `conversation_id`, `device_id`, `language`, `reason`, and `correlation_id` for automations.
+
 ### Prompt Customization
 Custom Conversation breaks down prompts into configurable components:
 
