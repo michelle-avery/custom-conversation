@@ -58,7 +58,11 @@
       "init": {
         "data": {
           "instructions_prompt": "Instructions",
-          "llm_hass_api": "Choose the API to expose to the LLM"
+          "llm_hass_api": "Choose the API to expose to the LLM",
+          "escalation_mode": "Escalation mode",
+          "escalation_doctrine_entity": "Escalation doctrine input_text",
+          "escalation_acknowledgement": "Escalation acknowledgement",
+          "escalation_denylist": "Escalation denylist"
         },
         "data_description": {
           "prompt": "Instruct how the LLM should respond. This can be a template."

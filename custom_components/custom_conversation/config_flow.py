@@ -30,6 +30,10 @@ from .const import (
     CONF_ENABLE_HASS_AGENT,
     CONF_ENABLE_LANGFUSE,
     CONF_ENABLE_LLM_AGENT,
+    CONF_ESCALATION_ACKNOWLEDGEMENT,
+    CONF_ESCALATION_DENYLIST,
+    CONF_ESCALATION_DOCTRINE_ENTITY,
+    CONF_ESCALATION_MODE,
     CONF_IGNORED_INTENTS,
     CONF_IGNORED_INTENTS_SECTION,
     CONF_INSTRUCTIONS_PROMPT,
@@ -77,13 +81,21 @@ from .const import (
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
     DOMAIN,
+    ESCALATION_MODE_ASYNC,
+    ESCALATION_MODE_OFF,
+    ESCALATION_MODE_SYNC,
     LOGGER,
 )
+from .escalation import DEFAULT_ACKNOWLEDGEMENT, DEFAULT_DENYLIST
 from .providers import SUPPORTED_PROVIDERS, LiteLLMProvider, get_provider
 
 _LOGGER = LOGGER
 
 DEFAULT_OPTIONS = {
+    CONF_ESCALATION_MODE: ESCALATION_MODE_OFF,
+    CONF_ESCALATION_DOCTRINE_ENTITY: "",
+    CONF_ESCALATION_ACKNOWLEDGEMENT: DEFAULT_ACKNOWLEDGEMENT,
+    CONF_ESCALATION_DENYLIST: DEFAULT_DENYLIST,
     CONF_LLM_HASS_API: "none",
     CONF_AGENTS_SECTION: {
         CONF_ENABLE_HASS_AGENT: True,
@@ -553,6 +565,32 @@ class CustomConversationOptionsFlow(OptionsFlow):
                     CONF_MAX_TOKENS,
                     default=options.get(CONF_MAX_TOKENS, DEFAULT_MAX_TOKENS),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                vol.Optional(
+                    CONF_ESCALATION_MODE,
+                    default=options.get(CONF_ESCALATION_MODE, ESCALATION_MODE_OFF),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            ESCALATION_MODE_OFF,
+                            ESCALATION_MODE_SYNC,
+                            ESCALATION_MODE_ASYNC,
+                        ]
+                    )
+                ),
+                vol.Optional(
+                    CONF_ESCALATION_DOCTRINE_ENTITY,
+                    default=options.get(CONF_ESCALATION_DOCTRINE_ENTITY, ""),
+                ): TextSelector(TextSelectorConfig(type="text")),
+                vol.Optional(
+                    CONF_ESCALATION_ACKNOWLEDGEMENT,
+                    default=options.get(
+                        CONF_ESCALATION_ACKNOWLEDGEMENT, DEFAULT_ACKNOWLEDGEMENT
+                    ),
+                ): TextSelector(TextSelectorConfig(type="text")),
+                vol.Optional(
+                    CONF_ESCALATION_DENYLIST,
+                    default=options.get(CONF_ESCALATION_DENYLIST, DEFAULT_DENYLIST),
+                ): TextSelector(TextSelectorConfig(multiline=True)),
                 # Hass API Control
                 vol.Optional(
                     CONF_LLM_HASS_API,

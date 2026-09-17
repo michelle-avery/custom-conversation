@@ -19,6 +19,16 @@ CONF_SECONDARY_API_KEY = "secondary_api_key"
 CONF_SECONDARY_BASE_URL = "secondary_base_url"
 CONF_SECONDARY_CHAT_MODEL = "secondary_chat_model"
 
+CONF_ESCALATION_MODE = "escalation_mode"
+CONF_ESCALATION_DOCTRINE_ENTITY = "escalation_doctrine_entity"
+CONF_ESCALATION_ACKNOWLEDGEMENT = "escalation_acknowledgement"
+CONF_ESCALATION_DENYLIST = "escalation_denylist"
+ESCALATION_MODE_OFF = "off"
+ESCALATION_MODE_ASYNC = "async"
+ESCALATION_MODE_SYNC = "sync"
+ESCALATION_SENTINEL = "[ESCALATE"
+ESCALATION_EVENT = f"{DOMAIN}_escalated"
+
 CONFIGURING_SECONDARY_PROVIDER = "configuring_secondary_provider"
 
 DEFAULT_PROVIDER = "openai"
