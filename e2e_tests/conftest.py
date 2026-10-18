@@ -42,7 +42,7 @@ env_path = Path(__file__).parent / ".env"
 if env_path.is_file():
     load_dotenv(dotenv_path=env_path, verbose=True)
 
-ALLOWED_HOSTS = ["api.openai.com", "generativelanguage.googleapis.com", "openrouter.ai", "mistral.ai"]
+ALLOWED_HOSTS = ["api.openai.com", "generativelanguage.googleapis.com", "openrouter.ai", "mistral.ai", "api.anthropic.com"]
 LANGFUSE_HOST_ENV = os.getenv("LANGFUSE_HOST")
 if LANGFUSE_HOST_ENV:
     LANGFUSE_HOSTNAME = LANGFUSE_HOST_ENV.split("://")[-1].split("/")[0]
@@ -181,6 +181,15 @@ SUPPORTED_PROVIDERS = [
         default_base_url=None,
         default_model="mistral-large-latest",
         primary_provider="mistral"
+    ),
+    LLMProviderConfig(
+        id="anthropic",
+        api_key_env_var="ANTHROPIC_API_KEY",
+        model_env_var="ANTHROPIC_MODEL",
+        base_url_env_var=None,
+        default_base_url=None,
+        default_model="claude-opus-5-5",
+        primary_provider="anthropic"
     )
 ]
 

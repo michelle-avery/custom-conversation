@@ -31,6 +31,10 @@ class LiteLLMProvider:
         elif manual_default_base_url:
             self.default_base_url = manual_default_base_url
 
+    def model_list_headers(self, api_key: str | None) -> dict[str, str]:
+        """Get the headers for the model list request."""
+        return {"Authorization": f"Bearer {api_key}"}
+
     def get_supported_models(
         self, base_url: str | None, api_key: str | None
     ) -> list[str]:
@@ -42,7 +46,7 @@ class LiteLLMProvider:
 
         response = requests.get(
             f"{base_url}{self.model_list_path}",
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=self.model_list_headers(api_key),
             timeout=5,
         )
         if response.status_code == 200:
@@ -102,6 +106,23 @@ class GeminiProvider(LiteLLMProvider):
         return []
 
 
+class AnthropicProvider(LiteLLMProvider):
+    """Configuration for Anthropic provider."""
+
+    def __init__(self) -> None:
+        """Initialize the provider."""
+        super().__init__(
+            key="anthropic",
+            provider_name="Anthropic",
+            model_list_path="/v1/models?limit=1000",
+            supports_custom_base_url=True,
+        )
+
+    def model_list_headers(self, api_key: str | None) -> dict[str, str]:
+        """Get the headers for the model list request."""
+        return {"x-api-key": api_key or "", "anthropic-version": "2023-06-01"}
+
+
 openai = LiteLLMProvider(
     key="openai",
     provider_name="OpenAI",
@@ -127,6 +148,8 @@ mistral = LiteLLMProvider(
     manual_default_base_url="https://api.mistral.ai/v1",
 )
 
+anthropic = AnthropicProvider()
+
 ollama = LiteLLMProvider(
     key="ollama",
     provider_name="Ollama",
@@ -144,6 +167,7 @@ SUPPORTED_PROVIDERS = [
     gemini,
     openrouter,
     mistral,
+    anthropic,
     # ollama, disabled pending litellm fixes for https://github.com/BerriAI/litellm/issues/6135 and https://github.com/BerriAI/litellm/issues/9602
     # ollama_chat
 ]

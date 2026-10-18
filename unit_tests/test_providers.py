@@ -6,7 +6,9 @@ import pytest
 
 from custom_components.custom_conversation.providers import (
     SUPPORTED_PROVIDERS,
+    AnthropicProvider,
     GeminiProvider,
+    anthropic,
     LiteLLMProvider,
     gemini,
     get_provider,
@@ -197,11 +199,47 @@ class TestGeminiProvider:
         assert "Error parsing JSON response" in caplog.text
 
 
+class TestAnthropicProvider:
+    """Tests for the AnthropicProvider class."""
+
+    @patch("custom_components.custom_conversation.providers.ProviderConfigManager")
+    def test_init(self, mock_pcm):
+        """Test AnthropicProvider initialization."""
+        mock_pcm.get_provider_model_info.return_value.get_api_base.return_value = "https://api.anthropic.com"
+        provider = AnthropicProvider()
+        assert provider.key == "anthropic"
+        assert provider.provider_name == "Anthropic"
+        assert provider.supports_custom_base_url is True
+        assert provider.default_base_url == "https://api.anthropic.com"
+
+    def test_get_supported_models_success(self, mock_requests_get):
+        """Test successful retrieval of Anthropic models."""
+        provider = AnthropicProvider()
+        provider.default_base_url = "http://anthropic.test"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "data": [{"id": "claude-opus-5-5"}, {"id": "claude-haiku-5-5"}],
+            "has_more": False,
+        }
+        mock_requests_get.return_value = mock_response
+
+        models = provider.get_supported_models(base_url=None, api_key="anthropic_key")
+        assert models == ["claude-opus-5-5", "claude-haiku-5-5"]
+        mock_requests_get.assert_called_once_with(
+            "http://anthropic.test/v1/models?limit=1000",
+            headers={"x-api-key": "anthropic_key", "anthropic-version": "2023-06-01"},
+            timeout=5,
+        )
+
+
 def test_get_provider_exists():
     """Test retrieving an existing provider."""
     assert get_provider("openai") is openai
     assert get_provider("gemini") is gemini
     assert get_provider("openrouter") is openrouter
+    assert get_provider("anthropic") is anthropic
 
 def test_get_provider_not_exists():
     """Test retrieving a non-existent provider."""
@@ -223,8 +261,13 @@ def test_provider_instances():
     assert openrouter.supports_custom_base_url is True
     assert openrouter.default_base_url == "https://openrouter.ai/api/v1"
 
+    assert anthropic.key == "anthropic"
+    assert anthropic.provider_name == "Anthropic"
+    assert anthropic.supports_custom_base_url is True
+    assert anthropic.default_base_url == "https://api.anthropic.com"
+
 def test_supported_providers_list():
     """Check if the SUPPORTED_PROVIDERS list contains the expected instances."""
-    expected_providers = [openai, gemini, openrouter, mistral]
+    expected_providers = [openai, gemini, openrouter, mistral, anthropic]
     assert expected_providers == SUPPORTED_PROVIDERS
 
