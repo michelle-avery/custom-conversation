@@ -70,6 +70,7 @@ from .const import (
     LOGGER,
 )
 from .prompt_manager import PromptManager
+from .providers import anthropic
 
 # Max number of back and forth with the LLM to generate a response
 MAX_TOOL_ITERATIONS = 10
@@ -179,6 +180,21 @@ def _format_tool(
     if tool.description:
         tool_spec["description"] = tool.description
     return ChatCompletionToolParam(type="function", function=tool_spec)
+
+
+def _sampling_params(
+    provider: str | None, temperature: float, top_p: float
+) -> dict[str, float]:
+    """Get the sampling parameters to send to a provider."""
+    if provider != anthropic.key:
+        return {"temperature": temperature, "top_p": top_p}
+    # Newer Claude models reject temperature and top_p, so only send them if the user changed them
+    params = {}
+    if temperature != DEFAULT_TEMPERATURE:
+        params["temperature"] = temperature
+    if top_p != DEFAULT_TOP_P:
+        params["top_p"] = top_p
+    return params
 
 
 def _convert_content_to_param(
@@ -703,6 +719,8 @@ class CustomConversationEntity(
             if entry.data.get(CONF_SECONDARY_PROVIDER_ENABLED)
             else ""
         )
+        temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
+        top_p = entry.options.get(CONF_TOP_P, DEFAULT_TOP_P)
         fallbacks = []
         model_list = [
             {
@@ -711,6 +729,9 @@ class CustomConversationEntity(
                     "model": primary_model,
                     "api_base": entry.data.get(CONF_PRIMARY_BASE_URL),
                     "api_key": entry.data.get(CONF_PRIMARY_API_KEY),
+                    **_sampling_params(
+                        entry.data.get(CONF_PRIMARY_PROVIDER), temperature, top_p
+                    ),
                 },
             },
         ]
@@ -722,6 +743,9 @@ class CustomConversationEntity(
                         "model": secondary_model,
                         "api_base": entry.data.get(CONF_SECONDARY_BASE_URL),
                         "api_key": entry.data.get(CONF_SECONDARY_API_KEY),
+                        **_sampling_params(
+                            entry.data.get(CONF_SECONDARY_PROVIDER), temperature, top_p
+                        ),
                     },
                 }
             )
@@ -729,8 +753,6 @@ class CustomConversationEntity(
 
         router = Router(model_list=model_list, fallbacks=fallbacks)
 
-        temperature = entry.options.get(CONF_TEMPERATURE, DEFAULT_TEMPERATURE)
-        top_p = entry.options.get(CONF_TOP_P, DEFAULT_TOP_P)
         max_tokens = entry.options.get(CONF_MAX_TOKENS, DEFAULT_MAX_TOKENS)
 
         langfuse_params = entry.options.get(CONF_LANGFUSE_SECTION, {})
@@ -740,8 +762,6 @@ class CustomConversationEntity(
             "messages": messages,
             "tools": tools,
             "max_tokens": max_tokens,
-            "top_p": top_p,
-            "temperature": temperature,
             "user": conversation_id,
             "stream": True,
             "metadata": {

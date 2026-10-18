@@ -11,6 +11,11 @@ OpenRouter is supported natively. The base URL is configurable to support proxie
 and tool calling are supported, but be aware that many of OpenRouter's free models do not support tool calling.
 ### Mistral
 Mistral is supported natively. The base URL is configurable to support proxies. Streaming and tool calls are supported. 
+### Anthropic
+Anthropic is supported natively. The base URL is configurable to support proxies. Streaming and tool calling are supported.
+Newer Claude models reject the Temperature and Top P settings, so they are only sent to Anthropic if you change them from
+their defaults. Newer Claude models also think before they answer, and this counts towards Max Tokens, so you may need to
+raise it to get a full response.
 
 ## Support through the OpenAI API
 ### Ollama

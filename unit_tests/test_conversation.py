@@ -11,7 +11,13 @@ from custom_components.custom_conversation.const import (
     CONF_AGENTS_SECTION,
     CONF_ENABLE_HASS_AGENT,
     CONF_ENABLE_LLM_AGENT,
+    CONF_SECONDARY_API_KEY,
+    CONF_SECONDARY_CHAT_MODEL,
+    CONF_SECONDARY_PROVIDER,
+    CONF_SECONDARY_PROVIDER_ENABLED,
+    CONF_TOP_P,
     CONVERSATION_ERROR_EVENT,
+    DEFAULT_TEMPERATURE,
     LLM_API_ID,
 )
 from custom_components.custom_conversation.api import IntentTool
@@ -260,3 +266,33 @@ async def test_format_tool_produces_serializable_schema(hass: HomeAssistant):
         assert parameters["type"] == "object"
         assert parameters["properties"], handler.intent_type
         json.dumps(formatted)
+
+
+async def test_sampling_params_are_set_per_provider(hass: HomeAssistant, config_entry: CustomConversationConfigEntry):
+    """Test that temperature and top_p are only sent to Anthropic when changed from the defaults."""
+    hass.config_entries.async_update_entry(
+        config_entry,
+        data={
+            **config_entry.data,
+            CONF_SECONDARY_PROVIDER_ENABLED: True,
+            CONF_SECONDARY_PROVIDER: "anthropic",
+            CONF_SECONDARY_API_KEY: "test-anthropic-key",
+            CONF_SECONDARY_CHAT_MODEL: "claude-opus-5-5",
+        },
+        options={**config_entry.options, CONF_TOP_P: 0.9},
+    )
+    entity = CustomConversationEntity(config_entry, Mock(), hass)
+
+    with patch("custom_components.custom_conversation.conversation.Router") as mock_router:
+        mock_router.return_value.acompletion = AsyncMock()
+        await entity._async_generate_completion(config_entry, [], None, "test-conversation-id")
+
+    primary, secondary = mock_router.call_args.kwargs["model_list"]
+    assert primary["litellm_params"]["temperature"] == DEFAULT_TEMPERATURE
+    assert primary["litellm_params"]["top_p"] == 0.9
+    assert "temperature" not in secondary["litellm_params"]
+    assert secondary["litellm_params"]["top_p"] == 0.9
+
+    completion_kwargs = mock_router.return_value.acompletion.call_args.kwargs
+    assert "temperature" not in completion_kwargs
+    assert "top_p" not in completion_kwargs
