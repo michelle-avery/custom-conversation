@@ -207,7 +207,7 @@ async def test_options_flow(hass: HomeAssistant, config_entry: MockConfigEntry):
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={
-                CONF_LLM_HASS_API: "none",
+                CONF_LLM_HASS_API: [],
                 CONF_IGNORED_INTENTS_SECTION: {
                     CONF_IGNORED_INTENTS: ["HassGetState"],
                 },
@@ -283,7 +283,7 @@ async def test_options_flow_empty_fields_reset(hass: HomeAssistant, config_entry
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             user_input={
-                CONF_LLM_HASS_API: "none",
+                CONF_LLM_HASS_API: [],
                 CONF_IGNORED_INTENTS_SECTION: {
                     CONF_IGNORED_INTENTS: [],
                 },

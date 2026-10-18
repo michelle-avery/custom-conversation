@@ -58,22 +58,23 @@
       "init": {
         "data": {
           "instructions_prompt": "Instructions",
-          "llm_hass_api": "Choose the API to expose to the LLM"
+          "llm_hass_api": "MCP servers for the model"
         },
         "data_description": {
-          "prompt": "Instruct how the LLM should respond. This can be a template."
+          "prompt": "Instruct how the LLM should respond. This can be a template.",
+          "llm_hass_api": "Each option is an MCP server available to conversation agents in Home Assistant. Assist is the built-in server from core; the MCP Client integration registers additional servers. Custom Conversation MCP server is this integration's server. Pick one or more; their tools and instructions are merged for the LLM."
         },
         "sections": {
           "ignored_intents_section": {
             "name": "Ignored Intents",
-            "description": "Configure which intents should be ignored by the Custom LLM API.\nThose recommended by the current Home Assistant version are marked.",
+            "description": "Configure which intents this integration's MCP server should not expose as tools.\nThose recommended by the current Home Assistant version are marked.",
             "data": {
               "ignored_intents": "Ignored Intents"
             }
           },
           "agents": {
-            "name": "Custom LLM API Agents",
-            "description": "Configure which agents are enabled for the Custom LLM API.\nEnabling both will try to resolve intents locally first,\nand then fall back to the configured LLM.",
+            "name": "Conversation agents",
+            "description": "Configure how requests are handled before the configured model runs.\nEnabling both tries the Home Assistant agent first, then the LLM agent.",
             "data": {
               "enable_home_assistant_agent": "Enable Home Assistant Agent",
               "enable_llm_agent": "Enable LLM Agent"
@@ -131,7 +132,7 @@
               "enable_langfuse": "Enable Langfuse for prompt management",
               "base_prompt_id": "The ID Langfuse prompt to use when the API is not enabled.\nHome assistant templating is not supported, but the variables '{{current_time}}' and '{{current_date}}', '{{ha_name}}' and '{{user_name}}' are available.",
               "base_prompt_label": "The label to select the version of the base prompt (ie, 'production', or 'latest')",
-              "api_prompt_id": "The ID of the Langfuse  prompt to use when the custom LLM API is enabled.\nNote that because Langfuse does not currently support combining multiple prompts, this will be the only prompt sent, it will not be combined with the one above as is the case with the non-Langfuse support.\nIn addition to the above variables, '{{location}}', '{{supports_timers}}' and '{{exposed_entities}}' are available.",
+              "api_prompt_id": "The ID of the Langfuse prompt to use when this integration's MCP server (Custom Conversation MCP server) is selected under MCP servers for the model.\nNote that because Langfuse does not currently support combining multiple prompts, this will be the only prompt sent, it will not be combined with the one above as is the case with the non-Langfuse support.\nIn addition to the above variables, '{{location}}', '{{supports_timers}}' and '{{exposed_entities}}' are available.",
               "api_prompt_label": "The label to select the version of the API prompt (ie, 'production', or 'latest')",
               "langfuse_host": "The host of the Langfuse API",
               "langfuse_public_key": "The public key for the Langfuse API",
