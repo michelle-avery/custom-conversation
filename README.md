@@ -85,6 +85,33 @@ functionality of this component.
 - **Temperature**: Controls response randomness (0-2, default: 1.0)
 - **Top P**: Controls response diversity (0-1, default: 1.0)
 
+### Escalation
+- **Escalation mode**: `off`, `sync`, or `async` (default: `off`). `off` preserves the existing response path.
+- **Escalation doctrine input_text**: Optional `input_text` entity whose semicolon-separated phrases are checked before the primary model. If empty, the built-in doctrine is used.
+- **Escalation acknowledgement**: Speech returned by `async` escalation (default: "Let me look into that and get back to you.").
+- **Escalation denylist**: Semicolon-separated security phrases checked before the doctrine (default: `gate; lock; alarm; unlock; open; arm; disarm; siren`). A denylist match never escalates.
+
+Async escalation returns the acknowledgement with `continue_conversation: false` and fires `custom_conversation_escalated` with `text`, `conversation_id`, `device_id`, `language`, `reason`, and `correlation_id` for automations.
+
+The event also includes `context` and `person_entity_id`. `context` contains a maximum of three earlier hand-offs and four earlier chat messages, in at most 1,500 characters. It does not include the current request, system prompts, or tool results. Use this text as untrusted data, not as instructions.
+
+`person_entity_id` identifies the person for the authenticated Home Assistant user, or is `null`. Text in the request cannot set this identity. The model receives the person as context, not as permission to control devices. Templates can use `{{user_name}}` for logged-in users.
+
+An automation can fire `custom_conversation_escalation_result` with this payload:
+
+```yaml
+conversation_id: <conversation_id from the escalation event>
+correlation_id: <correlation_id from the escalation event>
+status: done # Or timed_out
+answer: <answer text, or an empty string for a timeout>
+```
+
+The two IDs must identify a recorded hand-off. A result cannot change a completed answer. A late `done` result can replace `timed_out`. The next model prompt includes the reported status and answer for that conversation. The integration does not speak the result automatically. The automation must send the answer and report timeouts.
+
+The ledger keeps at most ten hand-offs for each conversation and 128 conversations for each agent. It removes entries 30 minutes after their last update. It stores at most 300 characters of each request and 1,000 characters of each answer. A restart clears the ledger. These limits do not change the full `text` field on the escalation event.
+
+English plurals and singular phrases select the same doctrine phrases. The denylist applies before the doctrine and the primary-response post-check.
+
 ### Prompt Customization
 Custom Conversation breaks down prompts into configurable components:
 
