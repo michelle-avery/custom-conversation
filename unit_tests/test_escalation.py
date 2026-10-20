@@ -100,6 +100,8 @@ async def test_async_doctrine_route_fires_event_and_returns_acknowledgement(
         "language": "en",
         "reason": "doctrine",
         "correlation_id": user_input.context.id,
+        "context": "",
+        "person_entity_id": None,
     }
 
 

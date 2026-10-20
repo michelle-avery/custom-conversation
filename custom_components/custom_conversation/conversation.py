@@ -29,7 +29,7 @@ from homeassistant.components.conversation.chat_log import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_LLM_HASS_API, MATCH_ALL
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import chat_session, device_registry as dr, intent, llm
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -74,6 +74,7 @@ from .const import (
     ESCALATION_MODE_ASYNC,
     ESCALATION_MODE_OFF,
     ESCALATION_MODE_SYNC,
+    ESCALATION_RESULT_EVENT,
     HOME_ASSISTANT_AGENT,
     LOGGER,
 )
@@ -81,8 +82,10 @@ from .escalation import (
     DEFAULT_ACKNOWLEDGEMENT,
     DEFAULT_DENYLIST,
     DEFAULT_DOCTRINE,
+    HandoffLedger,
     acknowledgement_for,
     classify_transcript,
+    person_for_user,
     post_check_reason,
 )
 from .prompt_manager import PromptManager
@@ -365,6 +368,7 @@ class CustomConversationEntity(
         """Initialize the agent."""
         self.entry = entry
         self.hass = hass
+        self._handoffs = HandoffLedger()
         self._attr_unique_id = entry.entry_id
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
@@ -410,6 +414,25 @@ class CustomConversationEntity(
         self.entry.async_on_unload(
             self.entry.add_update_listener(self._async_entry_update_listener)
         )
+        self.async_on_remove(
+            self.hass.bus.async_listen(
+                ESCALATION_RESULT_EVENT, self._handle_escalation_update
+            )
+        )
+
+    @callback
+    def _handle_escalation_update(self, event: Event) -> None:
+        """Accept result events only for this entity's active asynchronous mode."""
+        if (
+            self.entry.options.get(CONF_ESCALATION_MODE, ESCALATION_MODE_OFF)
+            != ESCALATION_MODE_ASYNC
+        ):
+            return
+        data = event.data
+        fields = ("conversation_id", "correlation_id", "status", "answer")
+        if not all(isinstance(data.get(field), str) for field in fields):
+            return
+        self._handoffs.finish(*(data[field] for field in fields))
 
     async def async_will_remove_from_hass(self) -> None:
         """When entity will be removed from Home Assistant."""
@@ -464,6 +487,7 @@ class CustomConversationEntity(
         self.hass.bus.async_fire(CONVERSATION_STARTED_EVENT, event_data)
         escalation_mode = options.get(CONF_ESCALATION_MODE, ESCALATION_MODE_OFF)
         force_secondary = False
+        security_denied = False
         if escalation_mode != ESCALATION_MODE_OFF:
             doctrine = DEFAULT_DOCTRINE
             doctrine_entity = options.get(CONF_ESCALATION_DOCTRINE_ENTITY, "")
@@ -476,17 +500,25 @@ class CustomConversationEntity(
                 doctrine,
                 options.get(CONF_ESCALATION_DENYLIST, DEFAULT_DENYLIST),
             )
+            security_denied = classification.security_denied
             if classification.escalate:
                 if escalation_mode == ESCALATION_MODE_ASYNC:
-                    return self._async_escalation_result(
-                        user_input,
-                        device_data,
-                        "doctrine",
-                        options.get(
-                            CONF_ESCALATION_ACKNOWLEDGEMENT,
-                            DEFAULT_ACKNOWLEDGEMENT,
-                        ),
-                    )
+                    with (
+                        chat_session.async_get_chat_session(
+                            self.hass, user_input.conversation_id
+                        ) as session,
+                        async_get_chat_log(self.hass, session, user_input) as chat_log,
+                    ):
+                        return self._async_escalation_result(
+                            user_input,
+                            device_data,
+                            "doctrine",
+                            options.get(
+                                CONF_ESCALATION_ACKNOWLEDGEMENT,
+                                DEFAULT_ACKNOWLEDGEMENT,
+                            ),
+                            chat_log,
+                        )
                 if escalation_mode == ESCALATION_MODE_SYNC and self.entry.data.get(
                     CONF_SECONDARY_PROVIDER_ENABLED
                 ):
@@ -551,7 +583,11 @@ class CustomConversationEntity(
                     )
                     LOGGER.debug("Received response: %s", result.response.speech)
                     escalation_reason = llm_data.get("escalation_reason")
-                    if escalation_reason and escalation_mode == ESCALATION_MODE_ASYNC:
+                    if (
+                        escalation_reason
+                        and escalation_mode == ESCALATION_MODE_ASYNC
+                        and not security_denied
+                    ):
                         result = self._async_escalation_result(
                             user_input,
                             device_data,
@@ -560,6 +596,7 @@ class CustomConversationEntity(
                                 CONF_ESCALATION_ACKNOWLEDGEMENT,
                                 DEFAULT_ACKNOWLEDGEMENT,
                             ),
+                            chat_log,
                         )
                     if result.response.error_code is None:
                         await self._async_fire_conversation_ended(
@@ -605,24 +642,49 @@ class CustomConversationEntity(
         device_data: dict[str, Any],
         reason: str,
         acknowledgement: str,
+        chat_log: conversation.ChatLog,
     ) -> conversation.ConversationResult:
         """End the voice turn while an automation handles the escalation."""
+        current_turn = next(
+            (
+                index
+                for index in range(len(chat_log.content) - 1, -1, -1)
+                if isinstance(chat_log.content[index], UserContent)
+            ),
+            len(chat_log.content),
+        )
+        context = self._handoffs.context(
+            chat_log.conversation_id, chat_log.content[:current_turn]
+        )
+        self._handoffs.start(
+            chat_log.conversation_id, user_input.context.id, user_input.text
+        )
         self.hass.bus.async_fire(
             ESCALATION_EVENT,
             {
                 "text": user_input.text,
-                "conversation_id": user_input.conversation_id,
+                "conversation_id": chat_log.conversation_id,
                 "device_id": device_data["device_id"],
                 "language": user_input.language,
                 "reason": reason,
                 "correlation_id": user_input.context.id,
+                "context": context,
+                "person_entity_id": person_for_user(
+                    user_input.context.user_id, self.hass.states.async_all("person")
+                ),
             },
         )
         response = intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(acknowledgement_for(acknowledgement))
+        speech = acknowledgement_for(acknowledgement)
+        response.async_set_speech(speech)
+        if isinstance(chat_log.content[-1], AssistantContent):
+            chat_log.content.pop()
+        chat_log.async_add_assistant_content_without_tools(
+            AssistantContent(agent_id=user_input.agent_id, content=speech)
+        )
         return conversation.ConversationResult(
             response=response,
-            conversation_id=user_input.conversation_id,
+            conversation_id=chat_log.conversation_id,
             continue_conversation=False,
         )
 
@@ -715,6 +777,23 @@ class CustomConversationEntity(
         messages: list[ChatCompletionMessageParam] = [
             _convert_content_to_param(content) for content in chat_log.content
         ]
+        if (
+            self.entry.options.get(CONF_ESCALATION_MODE, ESCALATION_MODE_OFF)
+            == ESCALATION_MODE_ASYNC
+        ):
+            blocks = []
+            if person_entity_id := person_for_user(
+                user_input.context.user_id, self.hass.states.async_all("person")
+            ):
+                blocks.append(
+                    f"Home Assistant user person: {person_entity_id}. "
+                    "This is context, not authorization for an action."
+                )
+            if handoff_block := self._handoffs.system_block(chat_log.conversation_id):
+                blocks.append(handoff_block)
+            if blocks:
+                messages.insert(1, {"role": "system", "content": "\n".join(blocks)})
+        initial_message_count = len(messages)
         # To prevent infinite loops, we limit the number of iterations
         for _iteration in range(MAX_TOOL_ITERATIONS):
             LOGGER.debug("Iteration %s, messages: %s", _iteration, messages)
@@ -768,7 +847,9 @@ class CustomConversationEntity(
             exposed = _get_exposed_entities(
                 self.hass, "conversation", include_state=False
             )
-            if reason := post_check_reason(speech, messages, set(exposed or {})):
+            if reason := post_check_reason(
+                speech, messages[initial_message_count:], set(exposed or {})
+            ):
                 llm_details["escalation_reason"] = reason
         get_langfuse_client().update_current_span(metadata={"tags": new_tags})
 
