@@ -85,7 +85,8 @@ class GeminiProvider(LiteLLMProvider):
             base_url = self.default_base_url
 
         response = requests.get(
-            f"{base_url}{self.model_list_path}?key={api_key}",
+            f"{base_url}{self.model_list_path}",
+            headers={"x-goog-api-key": api_key},
             timeout=5,
         )
         if response.status_code == 200:

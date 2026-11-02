@@ -166,7 +166,8 @@ class TestGeminiProvider:
         models = provider.get_supported_models(base_url=None, api_key="gemini_key")
         assert models == ["gemini-pro", "gemini-ultra", "other-model"]
         mock_requests_get.assert_called_once_with(
-            "http://gemini.test/v1beta/models?key=gemini_key",
+            "http://gemini.test/v1beta/models",
+            headers={"x-goog-api-key": "gemini_key"},
             timeout=5,
         )
 
